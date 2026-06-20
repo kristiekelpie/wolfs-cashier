@@ -88,10 +88,10 @@
   .screen .amount .cents{font-size:30px; opacity:0.85;}
   .screen .sub{font-size:11px; color:var(--text-dim); margin-top:6px; letter-spacing:0.05em;}
 
-  /* Numpad */
+  /* Numpad — digits left, % − + = on the right */
   .pad{
     display:grid;
-    grid-template-columns:1fr 1fr 1fr;
+    grid-template-columns:1fr 1fr 1fr 1fr;
     gap:8px;
   }
   .key{
@@ -109,6 +109,19 @@
   .key:active{background:#262b2e; transform:scale(0.97);}
   .key.fn{color:var(--text-dim); font-size:15px; font-weight:600;}
   .key.clear{color:var(--danger);}
+  .key.op{
+    background:var(--copper);
+    border-color:#9a6018;
+    color:#fff;
+    font-size:22px;
+    font-weight:700;
+  }
+  .key.op:active{background:#9a6018; transform:scale(0.97);}
+  .key.op.active{background:#b8732a; border-color:#fff;}
+  .key.op.neg.active{background:var(--danger); border-color:#fff; color:#fff;}
+  .key.backspace{font-size:20px; letter-spacing:0;}
+  .screen .amount.negative{color:var(--danger);}
+  .screen .amount .struck{text-decoration:line-through; opacity:0.45; font-size:22px; margin-right:8px;}
 
   /* Payment method selector */
   .pay-row{
@@ -349,22 +362,26 @@
 
   <div class="screen">
     <div class="amount" id="displayAmount">$0<span class="cents">.00</span></div>
-    <div class="sub" id="displaySub">Enter price</div>
+    <div class="sub" id="displaySub">Enter dollars</div>
   </div>
 
   <div class="pad" id="numpad">
     <div class="key" data-key="1">1</div>
     <div class="key" data-key="2">2</div>
     <div class="key" data-key="3">3</div>
+    <div class="key fn backspace" data-key="backspace" title="Backspace">⌫</div>
     <div class="key" data-key="4">4</div>
     <div class="key" data-key="5">5</div>
     <div class="key" data-key="6">6</div>
+    <div class="key op" data-key="minus" title="Negative / refund">−</div>
     <div class="key" data-key="7">7</div>
     <div class="key" data-key="8">8</div>
     <div class="key" data-key="9">9</div>
-    <div class="key fn" data-key="00">00</div>
+    <div class="key op" data-key="add" title="Add to total">+</div>
     <div class="key" data-key="0">0</div>
     <div class="key fn clear" data-key="clear">CLR</div>
+    <div class="key op" data-key="discount" title="Discount percent">%</div>
+    <div class="key op" data-key="equals" title="Confirm total">=</div>
   </div>
 
   <div class="pay-row" id="payRow">
@@ -398,7 +415,7 @@
     <h3>Edit transaction</h3>
     <div class="modal-field">
       <label>Amount</label>
-      <input type="text" id="editAmount" inputmode="decimal" placeholder="0.00">
+      <input type="text" id="editAmount" inputmode="numeric" placeholder="0">
     </div>
     <div class="modal-field">
       <label>Payment method</label>
@@ -431,12 +448,18 @@
 
 <script>
 (function(){
-  let cents = 0; // current entry, in cents
+  let cents = 0; // stored in cents, always whole-dollar increments (multiples of 100)
+  let accumulatorCents = 0; // running total from + presses
+  let discountPct = 0; // applied discount 0–100
+  let inputMode = 'price'; // 'price' | 'discount'
+  let discountBuffer = 0; // percent digits while typing after %
+  let isNegative = false; // − toggles refund / negative entry
   let selectedPay = 'cash';
   let sales = []; // {id, amount, pay, time, date, notes, synced}
   let pendingDeletes = []; // {id, date}
   let webhookUrl = '';
   let syncing = false;
+  let sheetReachable = null; // null = not checked yet, true/false after pull
 
   const displayAmount = document.getElementById('displayAmount');
   const displaySub = document.getElementById('displaySub');
@@ -479,15 +502,128 @@
     dateDisplay.textContent = mp.date + ' (MDT)';
   }
 
+  function getEntryDollars(){
+    return Math.floor(cents / 100);
+  }
+
+  function setEntryDollars(dollars){
+    cents = Math.min(999999, Math.max(0, dollars)) * 100;
+  }
+
+  function appendDollarDigit(digit){
+    setEntryDollars(getEntryDollars() * 10 + digit);
+  }
+
+  function backspaceEntry(){
+    if(inputMode === 'discount'){
+      discountBuffer = Math.floor(discountBuffer / 10);
+      return;
+    }
+    setEntryDollars(Math.floor(getEntryDollars() / 10));
+  }
+
+  function getRawCents(){
+    const mag = accumulatorCents + cents;
+    return isNegative ? -mag : mag;
+  }
+
+  function getActiveDiscountPct(){
+    if(inputMode === 'discount') return Math.min(100, discountBuffer);
+    return discountPct;
+  }
+
+  function getEffectiveCents(){
+    const raw = getRawCents();
+    const pct = getActiveDiscountPct();
+    let result = raw;
+    if(pct > 0) result = Math.round(raw * (100 - pct) / 100);
+    if(result !== 0) result = Math.round(result / 100) * 100;
+    return result;
+  }
+
+  function resetEntry(){
+    cents = 0;
+    accumulatorCents = 0;
+    discountPct = 0;
+    discountBuffer = 0;
+    inputMode = 'price';
+    isNegative = false;
+  }
+
+  function confirmTotal(){
+    if(inputMode === 'discount'){
+      discountPct = Math.min(100, discountBuffer);
+      discountBuffer = 0;
+      inputMode = 'price';
+    }
+    const final = getEffectiveCents();
+    if(final === 0) return;
+    accumulatorCents = Math.abs(final);
+    isNegative = final < 0;
+    cents = 0;
+    discountPct = 0;
+    renderDisplay();
+  }
+
   // ---- Display / numpad ----
-  function fmt(c){ return '$' + (c/100).toFixed(2); }
+  function fmt(c){
+    const sign = c < 0 ? '-' : '';
+    const abs = Math.abs(c);
+    return sign + '$' + (abs/100).toFixed(2);
+  }
 
   function renderDisplay(){
-    const dollars = Math.floor(cents/100);
-    const cc = (cents%100).toString().padStart(2,'0');
-    displayAmount.innerHTML = '$' + dollars + '<span class="cents">.' + cc + '</span>';
-    displaySub.textContent = cents > 0 ? 'Tap LOG SALE to confirm' : 'Enter price';
-    logBtn.disabled = cents === 0;
+    const raw = getRawCents();
+    const effective = getEffectiveCents();
+    const pct = getActiveDiscountPct();
+    const abs = Math.abs(effective);
+    const dollars = Math.floor(abs/100);
+    const cc = (abs%100).toString().padStart(2,'0');
+    const negClass = effective < 0 ? ' negative' : '';
+    const prefix = effective < 0 ? '-' : '';
+
+    if(pct > 0 && raw !== effective){
+      const rawAbs = Math.abs(raw);
+      const rawD = Math.floor(rawAbs/100);
+      const rawC = (rawAbs%100).toString().padStart(2,'0');
+      const rawPrefix = raw < 0 ? '-' : '';
+      displayAmount.className = 'amount' + negClass;
+      displayAmount.innerHTML =
+        '<span class="struck">' + rawPrefix + '$' + rawD + '.' + rawC + '</span>' +
+        prefix + '$' + dollars + '<span class="cents">.' + cc + '</span>';
+    } else {
+      displayAmount.className = 'amount' + negClass;
+      displayAmount.innerHTML = prefix + '$' + dollars + '<span class="cents">.' + cc + '</span>';
+    }
+
+    let sub = 'Enter dollars';
+    if(isNegative && inputMode !== 'discount'){
+      sub = 'Negative amount (refund/adjustment)';
+    }
+    if(inputMode === 'discount'){
+      sub = 'Discount: ' + discountBuffer + '%';
+      if(raw !== 0) sub += ' → ' + fmt(effective);
+    } else if(accumulatorCents > 0 && cents > 0){
+      sub = fmt(isNegative ? -accumulatorCents : accumulatorCents) + ' + ' + fmt(isNegative ? -cents : cents);
+      if(pct > 0) sub += ' · ' + pct + '% off';
+    } else if(accumulatorCents > 0){
+      sub = fmt(isNegative ? -accumulatorCents : accumulatorCents) + ' + …';
+      if(pct > 0) sub += ' · ' + pct + '% off → ' + fmt(effective);
+    } else if(pct > 0){
+      sub = pct + '% off · Tap LOG SALE to confirm';
+    } else if(effective !== 0){
+      sub = 'Tap LOG SALE to confirm';
+    }
+    displaySub.textContent = sub;
+    logBtn.disabled = effective === 0;
+
+    document.querySelectorAll('.key.op[data-key="discount"]').forEach(function(el){
+      el.classList.toggle('active', inputMode === 'discount');
+    });
+    document.querySelectorAll('.key.op[data-key="minus"]').forEach(function(el){
+      el.classList.toggle('active', isNegative);
+      el.classList.toggle('neg', isNegative);
+    });
   }
 
   function renderSummaryAndTotal(){
@@ -541,15 +677,22 @@
 
   function renderSyncStatus(){
     const pendingCount = sales.filter(s=>!s.synced).length + pendingDeletes.length;
+    const todayCount = sales.filter(s=>s.date===getMountainParts().date).length;
     if(!webhookUrl){
       syncDot.className = 'sync-dot offline';
       syncLabel.textContent = 'Not connected';
     } else if(!navigator.onLine){
       syncDot.className = 'sync-dot offline';
       syncLabel.textContent = pendingCount + ' queued (offline)';
+    } else if(sheetReachable === false){
+      syncDot.className = 'sync-dot offline';
+      syncLabel.textContent = 'Sheet unreachable';
     } else if(pendingCount > 0){
       syncDot.className = 'sync-dot pending';
       syncLabel.textContent = syncing ? 'Syncing...' : (pendingCount + ' pending');
+    } else if(todayCount === 0){
+      syncDot.className = 'sync-dot pending';
+      syncLabel.textContent = 'Connected · no sales';
     } else {
       syncDot.className = 'sync-dot';
       syncLabel.textContent = 'Synced';
@@ -592,16 +735,63 @@
     const key = e.target.closest('.key');
     if(!key) return;
     const k = key.dataset.key;
+
+    if(k === 'add'){
+      if(inputMode === 'discount'){
+        discountPct = Math.min(100, discountBuffer);
+        discountBuffer = 0;
+        inputMode = 'price';
+      }
+      if(cents > 0){
+        accumulatorCents += cents;
+        cents = 0;
+      }
+      renderDisplay();
+      return;
+    }
+
+    if(k === 'minus'){
+      if(inputMode === 'discount'){
+        discountBuffer = 0;
+        inputMode = 'price';
+      }
+      isNegative = !isNegative;
+      renderDisplay();
+      return;
+    }
+
+    if(k === 'discount'){
+      if(inputMode === 'discount'){
+        discountPct = Math.min(100, discountBuffer);
+        discountBuffer = 0;
+        inputMode = 'price';
+      } else if(getRawCents() !== 0){
+        discountBuffer = discountPct || 0;
+        inputMode = 'discount';
+      }
+      renderDisplay();
+      return;
+    }
+
+    if(k === 'equals'){
+      confirmTotal();
+      return;
+    }
+
+    if(k === 'backspace'){
+      backspaceEntry();
+      renderDisplay();
+      return;
+    }
+
     if(k === 'clear'){
-      cents = 0;
-    } else if(k === '00'){
-      if(cents === 0) return;
-      cents = cents*100;
-      if(cents > 99999900) cents = 99999900;
+      resetEntry();
+    } else if(inputMode === 'discount'){
+      const digit = parseInt(k,10);
+      discountBuffer = Math.min(100, discountBuffer * 10 + digit);
     } else {
       const digit = parseInt(k,10);
-      cents = cents*10 + digit;
-      if(cents > 99999900) cents = 99999900;
+      appendDollarDigit(digit);
     }
     renderDisplay();
   });
@@ -615,18 +805,34 @@
   });
 
   logBtn.addEventListener('click', function(){
-    if(cents === 0) return;
+    const finalCents = getEffectiveCents();
+    if(finalCents === 0) return;
     const mp = getMountainParts();
+    let noteText = notesInput.value.trim();
+    const pct = getActiveDiscountPct();
+    if(pct > 0){
+      const discNote = pct + '% off';
+      noteText = noteText ? noteText + ' · ' + discNote : discNote;
+    }
+    if(finalCents < 0 && noteText.indexOf('refund') === -1 && noteText.indexOf('Refund') === -1){
+      noteText = noteText ? 'Refund · ' + noteText : 'Refund';
+    }
+    if(accumulatorCents > 0 && cents > 0){
+      const partA = isNegative ? -accumulatorCents : accumulatorCents;
+      const partB = isNegative ? -cents : cents;
+      const comboNote = fmt(partA) + ' + ' + fmt(partB);
+      noteText = noteText ? comboNote + ' · ' + noteText : comboNote;
+    }
     sales.push({
       id: makeId(),
-      amount: cents,
+      amount: finalCents,
       pay: selectedPay,
       time: mp.time,
       date: mp.date,
-      notes: notesInput.value.trim(),
+      notes: noteText,
       synced: false
     });
-    cents = 0;
+    resetEntry();
     notesInput.value = '';
     renderAll();
     attemptSync();
@@ -647,7 +853,7 @@
     const s = sales[idx];
     if(!s) return;
     editingIdx = idx;
-    editAmount.value = (s.amount/100).toFixed(2);
+    editAmount.value = String(s.amount / 100);
     editNotes.value = s.notes || '';
     document.querySelectorAll('.modal-pay-btn').forEach(b=>{
       b.classList.toggle('active', b.dataset.pay === s.pay);
@@ -713,9 +919,9 @@
   document.getElementById('editSave').addEventListener('click', function(){
     if(editingIdx === null) return;
     const s = sales[editingIdx];
-    const newAmount = Math.round(parseFloat(editAmount.value || '0') * 100);
-    if(isNaN(newAmount) || newAmount <= 0){
-      alert('Enter a valid amount');
+    const newAmount = Math.round(parseFloat(editAmount.value || '0')) * 100;
+    if(isNaN(newAmount) || newAmount === 0){
+      alert('Enter a valid dollar amount');
       return;
     }
     const activePayBtn = editPayRow.querySelector('.modal-pay-btn.active');
@@ -734,13 +940,31 @@
     webhookInput.value = webhookUrl;
   });
 
-  saveWebhookBtn.addEventListener('click', function(){
+  saveWebhookBtn.addEventListener('click', async function(){
     webhookUrl = webhookInput.value.trim();
     try{ localStorage.setItem(WEBHOOK_KEY, webhookUrl); } catch(err){}
     settingsPanel.classList.remove('open');
+    sheetReachable = null;
     renderSyncStatus();
+    const ok = await testWebhookConnection();
+    if(!ok){
+      alert('Could not reach Google Sheets. Open the URL in Safari — it should show JSON, not a sign-in page. Check Deploy access is set to Anyone and the URL ends in /exec.');
+    }
     attemptSync();
+    pullFromSheet(false);
   });
+
+  async function testWebhookConnection(){
+    if(!webhookUrl || !navigator.onLine) return false;
+    try{
+      const res = await fetch(webhookUrl, { method: 'GET' });
+      const data = await res.json();
+      return !!(data && (data.status === 'ok' || data.status === 'success'));
+    } catch(err){
+      console.error('Webhook test failed', err);
+      return false;
+    }
+  }
 
   // ---- Sync logic ----
   async function attemptSync(){
@@ -765,16 +989,16 @@
         })),
         deletes: pendingDeletes
       };
-      // no-cors because Apps Script web apps often don't return CORS headers;
-      // we optimistically mark as synced on successful network send.
+      // POST with no-cors (Apps Script accepts the body); verify by pulling sheet data back.
       await fetch(webhookUrl, {
         method: 'POST',
         mode: 'no-cors',
         headers: {'Content-Type':'text/plain;charset=utf-8'},
         body: JSON.stringify(payload)
       });
-      pending.forEach(s=>{ s.synced = true; });
+      await new Promise(function(r){ setTimeout(r, 2000); });
       pendingDeletes = [];
+      await pullFromSheet(false);
     } catch(err){
       console.error('Sync failed', err);
     } finally {
@@ -802,9 +1026,14 @@
       const res = await fetch(url, { method: 'GET' });
       const data = await res.json();
       if(data && data.status === 'success' && Array.isArray(data.sales)){
+        sheetReachable = true;
         mergeServerSales(data.sales, today);
+      } else {
+        sheetReachable = false;
+        console.error('Pull rejected', data);
       }
     } catch(err){
+      sheetReachable = false;
       console.error('Pull failed', err);
     } finally {
       pulling = false;
@@ -824,14 +1053,13 @@
       const local = sales.find(s=>s.id === srv.id);
       const amountCents = Math.round(parseFloat(srv.amount) * 100);
       if(local){
-        // Only overwrite if this device isn't mid-edit (has unsynced local changes pending send)
-        if(local.synced){
-          local.amount = amountCents;
-          local.pay = srv.pay;
-          local.notes = srv.notes;
-          local.time = srv.time;
-          local.synced = true;
-        }
+        // Server has this row — POST succeeded even if we couldn't read the POST response.
+        if(!local.synced) local.synced = true;
+        local.amount = amountCents;
+        local.pay = srv.pay;
+        local.notes = srv.notes;
+        local.time = srv.time;
+        local.synced = true;
       } else {
         sales.push({
           id: srv.id,
@@ -860,12 +1088,14 @@
 
   // Retry push-sync periodically in case of flaky connection (only fires if there's pending data)
   setInterval(attemptSync, 30000);
+  setInterval(function(){ pullFromSheet(false); }, 30000);
   setInterval(renderDateBar, 60000);
 
   renderDateBar();
   loadLocal();
   renderAll();
   attemptSync();
+  pullFromSheet(false);
 })();
 </script>
 </body>

@@ -2,26 +2,45 @@
  * TCG Vendor Sales Log — Apps Script backend
  * -------------------------------------------
  * SETUP:
- * 1. Open your Google Sheet: TCG Vendor Sales Log
+ * 1. Open your Google Sheet (the one you want sales logged to)
  * 2. Extensions > Apps Script
  * 3. Delete any starter code, paste this whole file in
- * 4. Click Deploy > New deployment
+ * 4. If the script is NOT opened from a sheet, set SPREADSHEET_ID below
+ * 5. Click Deploy > New deployment
  *    - Type: Web app
  *    - Execute as: Me
  *    - Who has access: Anyone
- * 5. Click Deploy, authorize when prompted
- * 6. Copy the Web App URL — paste it into the sales app's Settings
- * 7. Whenever you edit this script, you must Deploy > Manage deployments
- *    > edit (pencil) > New version > Deploy, or the app won't see changes.
+ * 6. Click Deploy, authorize when prompted
+ * 7. Copy the Web App URL — paste it into the sales app's Settings
+ * 8. Whenever you edit this script, Deploy > Manage deployments
+ *    > edit (pencil) > New version > Deploy
  */
+
+// Optional: paste your Sheet ID here if the script is standalone (not bound to a sheet).
+// From the sheet URL: docs.google.com/spreadsheets/d/SHEET_ID_HERE/edit
+var SPREADSHEET_ID = '';
+
+function getSpreadsheet() {
+  if (SPREADSHEET_ID) {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    throw new Error('No spreadsheet linked. Open Extensions > Apps Script FROM your Google Sheet, or set SPREADSHEET_ID.');
+  }
+  return ss;
+}
 
 function doPost(e) {
   try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return jsonResponse({status: 'error', message: 'No POST body received'});
+    }
     var data = JSON.parse(e.postData.contents);
     var sales = data.sales || []; // array of {id, date, time, amount, pay, notes}
     var deletes = data.deletes || []; // array of {id, date}
 
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = getSpreadsheet();
     var results = [];
 
     sales.forEach(function(sale) {
@@ -47,7 +66,7 @@ function doGet(e) {
     if (!date) {
       return jsonResponse({status: 'ok', message: 'TCG Sales Log API is running'});
     }
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = getSpreadsheet();
     var sheet = ss.getSheetByName(date);
     if (!sheet) {
       return jsonResponse({status: 'success', sales: []});
