@@ -717,12 +717,9 @@
     } else if(pendingCount > 0){
       syncDot.className = 'sync-dot pending';
       syncLabel.textContent = syncing ? 'Syncing...' : (pendingCount + ' pending');
-    } else if(todayCount === 0){
-      syncDot.className = 'sync-dot pending';
-      syncLabel.textContent = 'Connected · no sales';
     } else {
       syncDot.className = 'sync-dot';
-      syncLabel.textContent = 'Synced';
+      syncLabel.textContent = todayCount === 0 ? 'Connected' : 'Synced';
     }
   }
 
