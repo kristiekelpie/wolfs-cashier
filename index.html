@@ -272,11 +272,19 @@
     font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em;
     display:block; margin-bottom:6px;
   }
+  .notes-input-row{display:flex;align-items:center;}
   .notes-wrap input{
-    width:100%; background:transparent; border:none; color:var(--text);
-    font-size:14px; outline:none; font-family:inherit;
+    flex:1; background:transparent; border:none; color:var(--text);
+    font-size:14px; outline:none; font-family:inherit; min-width:0;
   }
   .notes-wrap input::placeholder{color:#555a5d;}
+  .photo-btn{background:none;border:none;border-left:1px solid var(--line);padding:0 10px;cursor:pointer;font-size:16px;color:var(--text-dim);font-family:inherit;line-height:1;flex-shrink:0;height:22px;display:flex;align-items:center;}
+  .photo-preview-wrap{position:relative;display:inline-flex;}
+  .photo-preview{width:44px;height:44px;object-fit:cover;border-radius:6px;display:block;}
+  .photo-clear{position:absolute;top:-6px;right:-6px;background:var(--panel);border:1px solid var(--line);border-radius:50%;width:18px;height:18px;font-size:10px;line-height:16px;text-align:center;cursor:pointer;color:var(--text);padding:0;}
+  .h-photo{width:100%;margin-top:6px;}
+  .h-photo img{max-height:100px;border-radius:6px;object-fit:cover;display:block;}
+  .h-photo-pending{font-size:10px;color:var(--copper);margin-top:2px;}
 
   /* Date + sync bar */
   .top-bar{
@@ -392,8 +400,16 @@
 
   <div class="notes-wrap">
     <label>Notes (optional)</label>
-    <input type="text" id="notesInput" placeholder="e.g. holo Charizard, booster box">
+    <div class="notes-input-row">
+      <input type="text" id="notesInput" placeholder="e.g. holo Charizard, booster box">
+      <div class="photo-preview-wrap" id="photoPreviewWrap" style="display:none">
+        <img id="photoPreview" class="photo-preview" src="" alt="photo">
+        <button class="photo-clear" id="photoClear" type="button">✕</button>
+      </div>
+      <button class="photo-btn" id="photoBtn" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+    </div>
   </div>
+  <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
 
   <div class="log-btn" id="logBtn">LOG SALE</div>
 
@@ -460,6 +476,7 @@
   let webhookUrl = '';
   let syncing = false;
   let sheetReachable = null; // null = not checked yet, true/false after pull
+  let pendingPhoto = null; // base64 data URL attached to the next logged sale
 
   const displayAmount = document.getElementById('displayAmount');
   const displaySub = document.getElementById('displaySub');
@@ -471,6 +488,11 @@
   const sumVenmo = document.getElementById('sumVenmo');
   const sumPaypal = document.getElementById('sumPaypal');
   const notesInput = document.getElementById('notesInput');
+  const photoBtn = document.getElementById('photoBtn');
+  const photoInput = document.getElementById('photoInput');
+  const photoPreviewWrap = document.getElementById('photoPreviewWrap');
+  const photoPreview = document.getElementById('photoPreview');
+  const photoClear = document.getElementById('photoClear');
   const dateDisplay = document.getElementById('dateDisplay');
   const syncDot = document.getElementById('syncDot');
   const syncLabel = document.getElementById('syncLabel');
@@ -653,6 +675,10 @@
       const realIdx = sales.indexOf(s);
       const noteHtml = s.notes ? '<div class="h-note">' + escapeHtml(s.notes) + '</div>' : '';
       const pendingHtml = !s.synced ? '<span class="h-pending">●queued</span>' : '';
+      let photoHtml = '';
+      if(s.photoUrl){
+        photoHtml = '<div class="h-photo"><a href="' + s.photoUrl + '" target="_blank" style="display:inline-block;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px" style="cursor:pointer;"><path d="M 11.5 6 C 8.4802259 6 6 8.4802259 6 11.5 L 6 36.5 C 6 39.519774 8.4802259 42 11.5 42 L 36.5 42 C 39.519774 42 42 39.519774 42 36.5 L 42 11.5 C 42 8.4802259 39.519774 6 36.5 6 L 11.5 6 z M 11.5 9 L 36.5 9 C 37.898226 9 39 10.101774 39 11.5 L 39 36.5 C 39 36.632609 38.980071 36.76013 38.960938 36.886719 L 26.814453 25.134766 C 26.035864 24.38142 25.017476 24.005859 24 24.005859 C 22.982524 24.005859 21.966089 24.38142 21.1875 25.134766 L 9.0390625 36.886719 C 9.0199291 36.76013 9 36.632609 9 36.5 L 9 11.5 C 9 10.101774 10.101774 9 11.5 9 z M 30.5 13 C 29.125 13 27.903815 13.569633 27.128906 14.441406 C 26.353997 15.313179 26 16.416667 26 17.5 C 26 18.583333 26.353997 19.686821 27.128906 20.558594 C 27.903815 21.430367 29.125 22 30.5 22 C 31.875 22 33.096185 21.430367 33.871094 20.558594 C 34.646003 19.686821 35 18.583333 35 17.5 C 35 16.416667 34.646003 15.313179 33.871094 14.441406 C 33.096185 13.569633 31.875 13 30.5 13 z M 30.5 16 C 31.124999 16 31.403816 16.180367 31.628906 16.433594 C 31.853997 16.686821 32 17.083333 32 17.5 C 32 17.916667 31.853997 18.313179 31.628906 18.566406 C 31.403816 18.819633 31.124999 19 30.5 19 C 29.875001 19 29.596184 18.819633 29.371094 18.566406 C 29.146003 18.313179 29 17.916667 29 17.5 C 29 17.083333 29.146003 16.686821 29.371094 16.433594 C 29.596184 16.180367 29.875001 16 30.5 16 z M 24.001953 26.988281 C 24.261517 26.988281 24.520104 27.089361 24.728516 27.291016 L 36.800781 38.970703 C 36.701225 38.982362 36.603103 39 36.5 39 L 11.5 39 C 11.396897 39 11.298775 38.982362 11.199219 38.970703 L 23.273438 27.291016 C 23.481848 27.089361 23.742389 26.988281 24.001953 26.988281 z" fill="#E3E2E0"/></svg></a></div>';
+      }
       return '<div class="h-row">' +
         '<div class="h-left">' +
           '<span class="h-tag ' + s.pay + '">' + s.pay + '</span>' +
@@ -665,6 +691,7 @@
           '<span class="h-del" data-del="' + realIdx + '">✕</span>' +
         '</div>' +
         noteHtml +
+        photoHtml +
       '</div>';
     }).join('');
   }
@@ -817,23 +844,112 @@
       const comboNote = fmt(partA) + ' + ' + fmt(partB);
       noteText = noteText ? comboNote + ' · ' + noteText : comboNote;
     }
+    const saleId = makeId();
+    const photo = pendingPhoto;
     sales.push({
-      id: makeId(),
+      id: saleId,
       amount: finalCents,
       pay: selectedPay,
       time: mp.time,
       date: mp.date,
       notes: noteText,
+      photoUrl: null,
       synced: false
     });
     resetEntry();
     notesInput.value = '';
+    pendingPhoto = null;
+    photoPreviewWrap.style.display = 'none';
+    photoPreview.src = '';
     renderAll();
+
+    if (photo) {
+      uploadPhotoToDrive(photo, saleId, mp.date).then(photoUrl => {
+        const sale = sales.find(s => s.id === saleId);
+        if (sale && photoUrl) {
+          sale.photoUrl = photoUrl;
+          renderAll();
+        }
+      });
+    }
     attemptSync();
   });
 
   function makeId(){
     return 'sale_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
+  }
+
+  // Resize to max 1080px, compress to max 500KB base64 (for sync payload)
+  function resizeImageToTarget(file, callback){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        const MAX = 1080;
+        let w = img.width, h = img.height;
+        if(w > MAX || h > MAX){
+          if(w >= h){ h = Math.round(h * MAX / w); w = MAX; }
+          else{ w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const TARGET = 500 * 1024; // 500 KB as base64 length threshold (safer for sync)
+        const qualities = [0.85, 0.70, 0.55, 0.40];
+        let result;
+        for(let i = 0; i < qualities.length; i++){
+          result = canvas.toDataURL('image/jpeg', qualities[i]);
+          if(result.length <= TARGET || i === qualities.length - 1) break;
+        }
+        callback(result);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  photoBtn.addEventListener('click', function(){ photoInput.click(); });
+
+  photoInput.addEventListener('change', function(){
+    const file = photoInput.files[0];
+    if(!file) return;
+    photoBtn.innerHTML = '⏳';
+    resizeImageToTarget(file, function(dataUrl){
+      pendingPhoto = dataUrl;
+      photoPreview.src = dataUrl;
+      photoPreviewWrap.style.display = 'inline-flex';
+      photoBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+      photoInput.value = '';
+    });
+  });
+
+  photoClear.addEventListener('click', function(){
+    pendingPhoto = null;
+    photoPreview.src = '';
+    photoPreviewWrap.style.display = 'none';
+    photoInput.value = '';
+  });
+
+  async function uploadPhotoToDrive(base64Data, saleId, dateStr) {
+    if (!webhookUrl || !navigator.onLine) return null;
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: JSON.stringify({
+          action: 'uploadPhoto',
+          photo: base64Data,
+          saleId: saleId,
+          date: dateStr
+        })
+      });
+      await new Promise(r => setTimeout(r, 2000)); // wait for Drive API
+      return null; // can't read no-cors response, but if we get here it likely worked
+    } catch(err) {
+      console.error('Photo upload failed', err);
+      return null;
+    }
   }
 
   // ---- Edit modal ----
@@ -965,6 +1081,12 @@
     if(!webhookUrl) { renderSyncStatus(); return; }
     if(!navigator.onLine) { renderSyncStatus(); return; }
     const pending = sales.filter(s=>!s.synced);
+    console.log('attemptSync: pending sales =', pending.length, ', pending deletes =', pendingDeletes.length);
+    if(pending.length > 0) {
+      pending.forEach(s => {
+        console.log('  Sale', s.id, '- has photo:', !!s.photo);
+      });
+    }
     if(pending.length === 0 && pendingDeletes.length === 0) { renderSyncStatus(); return; }
     if(syncing) return;
 
@@ -979,7 +1101,8 @@
           time: s.time,
           amount: (s.amount/100).toFixed(2),
           pay: s.pay,
-          notes: s.notes
+          notes: s.notes,
+          photoUrl: s.photoUrl || null
         })),
         deletes: pendingDeletes
       };
@@ -1053,6 +1176,7 @@
         local.pay = srv.pay;
         local.notes = srv.notes;
         local.time = srv.time;
+        if(srv.photo) local.photoUrl = srv.photo; // server returns photo URL in 'photo' field
         local.synced = true;
       } else {
         sales.push({
@@ -1062,6 +1186,7 @@
           time: srv.time,
           date: srv.date,
           notes: srv.notes || '',
+          photoUrl: srv.photo || null,
           synced: true
         });
       }

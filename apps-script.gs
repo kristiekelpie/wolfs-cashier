@@ -16,6 +16,44 @@
  *    > edit (pencil) > New version > Deploy
  */
 
+var PHOTOS_ROOT = "Wolf's Cashier";
+
+function getPhotoDayFolder(dateStr) {
+  var rootFolders = DriveApp.getFoldersByName(PHOTOS_ROOT);
+  var rootFolder;
+  if (rootFolders.hasNext()) {
+    rootFolder = rootFolders.next();
+  } else {
+    rootFolder = DriveApp.createFolder(PHOTOS_ROOT);
+  }
+
+  var dayFolders = rootFolder.getFoldersByName(dateStr);
+  if (dayFolders.hasNext()) {
+    return dayFolders.next();
+  } else {
+    return rootFolder.createFolder(dateStr);
+  }
+}
+
+function savePhotoToDrive(base64DataUrl, saleId, dateStr) {
+  try {
+    var commaIdx = base64DataUrl.indexOf(',');
+    if (commaIdx === -1) return null;
+    var header = base64DataUrl.substring(0, commaIdx);
+    var base64 = base64DataUrl.substring(commaIdx + 1);
+    var mimeType = header.replace('data:', '').replace(';base64', '');
+    var ext = mimeType === 'image/png' ? '.png' : '.jpg';
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, saleId + ext);
+    var folder = getPhotoDayFolder(dateStr);
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return 'https://drive.google.com/uc?id=' + file.getId();
+  } catch(err) {
+    Logger.log('Photo save error: ' + err.toString());
+    return null;
+  }
+}
+
 // Optional: paste your Sheet ID here if the script is standalone (not bound to a sheet).
 // From the sheet URL: docs.google.com/spreadsheets/d/SHEET_ID_HERE/edit
 var SPREADSHEET_ID = '';
@@ -37,7 +75,17 @@ function doPost(e) {
       return jsonResponse({status: 'error', message: 'No POST body received'});
     }
     var data = JSON.parse(e.postData.contents);
-    var sales = data.sales || []; // array of {id, date, time, amount, pay, notes}
+
+    // Handle photo upload
+    if (data.action === 'uploadPhoto' && data.photo) {
+      var photoUrl = savePhotoToDrive(data.photo, data.saleId, data.date);
+      if (photoUrl) {
+        updateSalePhotoUrl(data.saleId, data.date, photoUrl);
+      }
+      return jsonResponse({status: 'success', photoUrl: photoUrl});
+    }
+
+    var sales = data.sales || []; // array of {id, date, time, amount, pay, notes, photoUrl}
     var deletes = data.deletes || []; // array of {id, date}
 
     var ss = getSpreadsheet();
@@ -81,7 +129,7 @@ function doGet(e) {
 function readSalesFromSheet(sheet, date) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 4) return [];
-  var range = sheet.getRange(4, 1, lastRow - 3, 5).getValues(); // A:E from row 4
+  var range = sheet.getRange(4, 1, lastRow - 3, 6).getValues(); // A:F from row 4
   var sales = [];
   for (var i = 0; i < range.length; i++) {
     var row = range[i];
@@ -93,7 +141,8 @@ function readSalesFromSheet(sheet, date) {
       time: row[0],
       amount: row[1],
       pay: row[2],
-      notes: row[3]
+      notes: row[3],
+      photo: row[5] || null // return in 'photo' field for compatibility
     });
   }
   return sales;
@@ -115,9 +164,9 @@ function setupSheetTemplate(sheet, dateStr) {
   sheet.getRange('A1').setFontSize(16).setFontWeight('bold').setFontColor('#37352F');
   sheet.setRowHeight(1, 36);
 
-  // Header row
-  var headers = ['Time', 'Amount', 'Payment', 'Notes', '', ''];
+  // Header row (A–D visible, E hidden ID, F photo)
   sheet.getRange(3, 1, 1, 4).setValues([['Time', 'Amount', 'Payment', 'Notes']]);
+  sheet.getRange(3, 6).setValue('Photo');
   var headerRange = sheet.getRange(3, 1, 1, 4);
   headerRange.setFontWeight('bold')
     .setFontColor('#787774')
@@ -129,8 +178,9 @@ function setupSheetTemplate(sheet, dateStr) {
   sheet.setColumnWidth(1, 90);   // Time
   sheet.setColumnWidth(2, 100);  // Amount
   sheet.setColumnWidth(3, 110);  // Payment
-  sheet.setColumnWidth(4, 320);  // Notes
+  sheet.setColumnWidth(4, 280);  // Notes
   sheet.hideColumns(5);          // Column E holds the sale ID — hidden, used for edit/sync matching
+  sheet.setColumnWidth(6, 220);  // Photo URL
 
   // Freeze header
   sheet.setFrozenRows(3);
@@ -141,11 +191,11 @@ function setupSheetTemplate(sheet, dateStr) {
   // Font for whole sheet
   sheet.getRange('A1:F200').setFontFamily('Arial');
 
-  // Summary box (top right) — placeholders, formulas added as rows fill in
-  sheet.getRange('F1').setValue('Total');
-  sheet.getRange('F1').setFontSize(10).setFontColor('#787774').setFontWeight('bold');
-  sheet.getRange('F2').setFormula('=SUM(B4:B1000)');
-  sheet.getRange('F2').setNumberFormat('$#,##0.00').setFontSize(14).setFontWeight('bold').setFontColor('#2E7D32');
+  // Summary box — column G (F is Photo)
+  sheet.getRange('G1').setValue('Total');
+  sheet.getRange('G1').setFontSize(10).setFontColor('#787774').setFontWeight('bold');
+  sheet.getRange('G2').setFormula('=SUM(B4:B1000)');
+  sheet.getRange('G2').setNumberFormat('$#,##0.00').setFontSize(14).setFontWeight('bold').setFontColor('#2E7D32');
 }
 
 function upsertSaleRow(sheet, sale) {
@@ -158,6 +208,16 @@ function upsertSaleRow(sheet, sale) {
   sheet.getRange(row, 3).setValue(sale.pay);
   sheet.getRange(row, 4).setValue(sale.notes || '');
   sheet.getRange(row, 5).setValue(sale.id); // hidden ID column
+  if (sale.photoUrl) {
+    var photoCell = sheet.getRange(row, 6);
+    photoCell.setValue(sale.photoUrl);
+    photoCell.setFontColor('#2E6CA4');
+    photoCell.setUnderline(true);
+  }
+  // If sale has photo field (from readSalesFromSheet), use it for column F
+  if (sale.photo && !sale.photoUrl) {
+    sheet.getRange(row, 6).setValue(sale.photo);
+  }
 
   // Color tag per payment method, Notion-style soft badges
   var payCell = sheet.getRange(row, 3);
@@ -170,7 +230,7 @@ function upsertSaleRow(sheet, sale) {
   payCell.setBackground(c.bg).setFontColor(c.fg).setFontWeight('bold').setHorizontalAlignment('center');
 
   // Subtle row border
-  sheet.getRange(row, 1, 1, 4).setBorder(false, false, true, false, false, false, '#EDECEA', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(row, 1, 1, 6).setBorder(false, false, true, false, false, false, '#EDECEA', SpreadsheetApp.BorderStyle.SOLID);
   sheet.getRange(row, 1, 1, 4).setFontSize(11).setFontColor('#37352F');
 }
 
@@ -195,6 +255,20 @@ function nextEmptyRow(sheet) {
 function deleteRowById(sheet, id) {
   var row = findRowById(sheet, id);
   if (row) sheet.deleteRow(row);
+}
+
+function updateSalePhotoUrl(saleId, dateStr, photoUrl) {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(dateStr);
+  if (!sheet) return;
+
+  var row = findRowById(sheet, saleId);
+  if (row) {
+    var photoCell = sheet.getRange(row, 6);
+    photoCell.setValue(photoUrl);
+    photoCell.setFontColor('#2E6CA4');
+    photoCell.setUnderline(true);
+  }
 }
 
 function jsonResponse(obj) {
