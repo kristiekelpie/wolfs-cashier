@@ -69,6 +69,12 @@ function getSpreadsheet() {
   var storedId = props.getProperty('SPREADSHEET_ID');
   if (storedId) return SpreadsheetApp.openById(storedId);
   ss = SpreadsheetApp.create("Wolf's Cashier Sales");
+  // Move it into the Wolf's Cashier folder
+  var file = DriveApp.getFileById(ss.getId());
+  var rootFolders = DriveApp.getFoldersByName(PHOTOS_ROOT);
+  var rootFolder = rootFolders.hasNext() ? rootFolders.next() : DriveApp.createFolder(PHOTOS_ROOT);
+  rootFolder.addFile(file);
+  DriveApp.getRootFolder().removeFile(file);
   props.setProperty('SPREADSHEET_ID', ss.getId());
   return ss;
 }
