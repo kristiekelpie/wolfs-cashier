@@ -1031,6 +1031,7 @@
         const sale = sales.find(s => s.id === saleId);
         if (sale && photoUrl) {
           sale.photoUrl = photoUrl;
+          saveLocal();
           renderAll();
         }
       });
