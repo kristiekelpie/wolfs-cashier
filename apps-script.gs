@@ -129,7 +129,7 @@ function doGet(e) {
 function readSalesFromSheet(sheet, date) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 4) return [];
-  var range = sheet.getRange(4, 1, lastRow - 3, 6).getValues(); // A:F from row 4
+  var range = sheet.getRange(4, 1, lastRow - 3, 8).getValues(); // A:H from row 4
   var sales = [];
   for (var i = 0; i < range.length; i++) {
     var row = range[i];
@@ -142,7 +142,9 @@ function readSalesFromSheet(sheet, date) {
       amount: row[1],
       pay: row[2],
       notes: row[3],
-      photo: row[5] || null // return in 'photo' field for compatibility
+      photo: row[5] || null, // return in 'photo' field for compatibility
+      type: row[6] || 'sale',
+      isTrade: row[7] === 'Yes' || row[7] === true
     });
   }
   return sales;
@@ -160,13 +162,15 @@ function getOrCreateDateSheet(ss, dateStr) {
 function setupSheetTemplate(sheet, dateStr) {
   // Title row
   sheet.getRange('A1').setValue('Sales — ' + dateStr);
-  sheet.getRange('A1:F1').merge();
+  sheet.getRange('A1:H1').merge();
   sheet.getRange('A1').setFontSize(16).setFontWeight('bold').setFontColor('#37352F');
   sheet.setRowHeight(1, 36);
 
-  // Header row (A–D visible, E hidden ID, F photo)
+  // Header row (A–D visible, E hidden ID, F photo, G type, H trade)
   sheet.getRange(3, 1, 1, 4).setValues([['Time', 'Amount', 'Payment', 'Notes']]);
   sheet.getRange(3, 6).setValue('Photo');
+  sheet.getRange(3, 7).setValue('Type');
+  sheet.getRange(3, 8).setValue('Trade');
   var headerRange = sheet.getRange(3, 1, 1, 4);
   headerRange.setFontWeight('bold')
     .setFontColor('#787774')
@@ -181,6 +185,8 @@ function setupSheetTemplate(sheet, dateStr) {
   sheet.setColumnWidth(4, 280);  // Notes
   sheet.hideColumns(5);          // Column E holds the sale ID — hidden, used for edit/sync matching
   sheet.setColumnWidth(6, 220);  // Photo URL
+  sheet.setColumnWidth(7, 70);   // Type
+  sheet.setColumnWidth(8, 70);   // Trade
 
   // Freeze header
   sheet.setFrozenRows(3);
@@ -218,6 +224,10 @@ function upsertSaleRow(sheet, sale) {
   if (sale.photo && !sale.photoUrl) {
     sheet.getRange(row, 6).setValue(sale.photo);
   }
+  // Type column (G)
+  sheet.getRange(row, 7).setValue(sale.type || 'sale');
+  // Trade column (H)
+  sheet.getRange(row, 8).setValue(sale.isTrade ? 'Yes' : '');
 
   // Color tag per payment method, Notion-style soft badges
   var payCell = sheet.getRange(row, 3);
@@ -230,7 +240,7 @@ function upsertSaleRow(sheet, sale) {
   payCell.setBackground(c.bg).setFontColor(c.fg).setFontWeight('bold').setHorizontalAlignment('center');
 
   // Subtle row border
-  sheet.getRange(row, 1, 1, 6).setBorder(false, false, true, false, false, false, '#EDECEA', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(row, 1, 1, 8).setBorder(false, false, true, false, false, false, '#EDECEA', SpreadsheetApp.BorderStyle.SOLID);
   sheet.getRange(row, 1, 1, 4).setFontSize(11).setFontColor('#37352F');
 }
 
