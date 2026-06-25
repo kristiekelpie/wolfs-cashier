@@ -399,6 +399,8 @@
   }
   .ob-steps li{font-size:13px; color:var(--text-dim); line-height:1.45;}
   .ob-steps strong{color:var(--text);}
+  .ob-inline-btn{display:inline-block; background:var(--copper-dim); border:1px solid var(--copper); color:var(--copper); border-radius:5px; padding:3px 9px; font-size:12px; font-weight:600; text-decoration:none; margin:2px 0;}
+  .ob-tip{display:block; font-size:11px; color:var(--copper); margin-top:4px; line-height:1.4;}
   .ob-input-wrap{
     background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;
   }
@@ -406,6 +408,7 @@
     width:100%; background:transparent; border:none; color:var(--text);
     font-size:12px; outline:none; font-family:'Courier New',monospace; box-sizing:border-box;
   }
+  .ob-input-label{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;}
   .ob-input-wrap input::placeholder{color:#555a5d;}
   .ob-connect-btn{
     background:var(--green); color:#0a1a0e; border-radius:8px;
@@ -431,12 +434,16 @@
     <p class="ob-desc">This app saves your sales to your own Google Sheet via a small Google Script — so your data stays in your Drive, fully separate from anyone else's.</p>
     <a class="ob-template-btn" id="obTemplateBtn" href="#" target="_blank" rel="noopener">Open the template script ↗</a>
     <ol class="ob-steps">
-      <li>Tap <strong>File → Make a copy</strong> (saves it to your Drive)</li>
-      <li>Tap <strong>Deploy → New deployment → Web app</strong></li>
+      <li>Click the <strong>copy icon</strong> to copy all the code</li>
+      <li>Open <a class="ob-inline-btn" href="https://script.google.com" target="_blank" rel="noopener">script.google.com ↗</a><span class="ob-tip">On mobile: tap your browser's menu (Safari: tap <strong>aA</strong> in the address bar / Chrome: tap <strong>⋮</strong>) → <strong>Request Desktop Site</strong></span></li>
+      <li>Click <strong>New project</strong></li>
+      <li>Delete the starter code and <strong>paste</strong> in the copied code</li>
+      <li>Click <strong>Deploy → New deployment → Web app</strong></li>
       <li>Set <strong>"Who has access"</strong> to <strong>Anyone</strong></li>
-      <li>Tap <strong>Deploy</strong>, then copy the resulting URL (ends in <strong>/exec</strong>)</li>
+      <li>Click <strong>Deploy</strong>, copy the resulting URL (ends in <strong>/exec</strong>) — then <strong>paste it into the field below</strong></li>
     </ol>
     <div class="ob-input-wrap">
+      <div class="ob-input-label">Paste your URL here</div>
       <input type="url" id="obUrlInput" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocorrect="off" spellcheck="false">
     </div>
     <div class="ob-connect-btn" id="obConnectBtn">Test Connection</div>
