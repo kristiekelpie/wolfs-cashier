@@ -63,9 +63,13 @@ function getSpreadsheet() {
     return SpreadsheetApp.openById(SPREADSHEET_ID);
   }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) {
-    throw new Error('No spreadsheet linked. Open Extensions > Apps Script FROM your Google Sheet, or set SPREADSHEET_ID.');
-  }
+  if (ss) return ss;
+  // Standalone deployment — auto-create a spreadsheet on first use
+  var props = PropertiesService.getScriptProperties();
+  var storedId = props.getProperty('SPREADSHEET_ID');
+  if (storedId) return SpreadsheetApp.openById(storedId);
+  ss = SpreadsheetApp.create("Wolf's Cashier Sales");
+  props.setProperty('SPREADSHEET_ID', ss.getId());
   return ss;
 }
 
