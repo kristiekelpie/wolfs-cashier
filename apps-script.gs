@@ -110,6 +110,9 @@ function doPost(e) {
     deletes.forEach(function(del) {
       var sheet = ss.getSheetByName(del.date);
       if (sheet) deleteRowById(sheet, del.id);
+      if (del.photoFileId) {
+        try { DriveApp.getFileById(del.photoFileId).setTrashed(true); } catch(e) {}
+      }
     });
 
     return jsonResponse({status: 'success', synced: results.length, deleted: deletes.length});

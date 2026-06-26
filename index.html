@@ -1349,7 +1349,8 @@
     if(deletingIdx === null) return;
     const s = sales[deletingIdx];
     if(s && s.synced){
-      pendingDeletes.push({id: s.id, date: s.date});
+      const photoFileId = s.photoUrl ? (new URL(s.photoUrl).searchParams.get('id') || null) : null;
+      pendingDeletes.push({id: s.id, date: s.date, photoFileId: photoFileId});
     }
     sales.splice(deletingIdx,1);
     closeDeleteConfirm();
