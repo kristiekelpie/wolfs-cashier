@@ -803,7 +803,7 @@
   // Mountain Time: MST is UTC-7, MDT is UTC-6 (daylight saving, roughly Mar-Nov)
   function getMountainParts(){
     const now = new Date();
-    const tz = localStorage.getItem(TZ_KEY) || 'America/Denver';
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const fmt = new Intl.DateTimeFormat('en-US', {
       timeZone: tz,
       year:'numeric', month:'2-digit', day:'2-digit',
@@ -812,15 +812,16 @@
     const parts = fmt.formatToParts(now);
     const map = {};
     parts.forEach(p=>{ if(p.type!=='literal') map[p.type]=p.value; });
-    const dateStr = map.year + '-' + map.month + '-' + map.day; // YYYY-MM-DD, sortable, for sheet tab names
-    const timeStr = map.hour + ':' + map.minute + ' ' + map.dayPeriod;
-    return {date: dateStr, time: timeStr};
+    const dateStr = map.year + '-' + map.month + '-' + map.day;
+    const tzAbbr = new Intl.DateTimeFormat('en-US',{timeZone:tz,timeZoneName:'short'})
+      .formatToParts(now).find(p=>p.type==='timeZoneName').value;
+    const timeStr = map.hour + ':' + map.minute + ' ' + map.dayPeriod + ' ' + tzAbbr;
+    return {date: dateStr, time: timeStr, tzAbbr: tzAbbr};
   }
 
   function renderDateBar(){
     const mp = getMountainParts();
-    const tzAbbr = new Intl.DateTimeFormat('en-US',{timeZone:localStorage.getItem(TZ_KEY)||'America/Denver',timeZoneName:'short'}).formatToParts(new Date()).find(p=>p.type==='timeZoneName').value;
-    dateDisplay.textContent = mp.date + ' (' + tzAbbr + ')';
+    dateDisplay.textContent = mp.date + ' (' + mp.tzAbbr + ')';
   }
 
   function getEntryDollars(){
@@ -1047,7 +1048,6 @@
 
   // ---- Local persistence (localStorage — survives refresh/closing the tab) ----
   const STORAGE_KEY = 'tcg_sales_data_v1';
-  const TZ_KEY = 'tcg_timezone_v1';
   const DELETES_KEY = 'tcg_pending_deletes_v1';
   const WEBHOOK_KEY = 'tcg_webhook_url_v1';
 
@@ -1412,7 +1412,6 @@
   // Date click → timezone panel
   document.getElementById('dateDisplay').addEventListener('click', function(){
     settingsPanel.classList.remove('open');
-    document.getElementById('timezonePanel').classList.toggle('open');
   });
 
 
@@ -1420,7 +1419,6 @@
   // Close Day
   function showCloseDayModal(){
     settingsPanel.classList.remove('open');
-    document.getElementById('timezonePanel').classList.remove('open');
     const mp = getMountainParts();
     const today = mp.date;
     const todaySales = sales.filter(function(s){ return s.date === today; });
