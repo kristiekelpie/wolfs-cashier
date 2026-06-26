@@ -257,6 +257,7 @@
   .h-tag.paypal{background:#2b2a50; color:#9090e0;}
   .h-tag.paylah{background:#3d1a1a; color:#e07070;}
   .h-tag.paynow{background:#1a2e2b; color:#5fbfb0;}
+  .h-tag.zelle{background:#1e2a40; color:#6ab0f5;}
   .h-tag.buy{background:#3d4a5c; color:#7fa3c8;}
   .h-tag.trade{background:#4a3a2a; color:#c9a57a;}
   .h-time{color:var(--text-dim); font-size:11px;}
@@ -698,6 +699,7 @@
     <div class="pay-btn" data-pay="paypal">PAYPAL</div>
     <div class="pay-btn" data-pay="paylah" style="display:none">PAYLAH</div>
     <div class="pay-btn" data-pay="paynow" style="display:none">PAYNOW</div>
+    <div class="pay-btn" data-pay="zelle" style="display:none">ZELLE</div>
   </div>
 
   <div class="type-row" id="typeRow">
@@ -727,6 +729,7 @@
     <div class="sum-card" data-pay="paypal"><div class="sum-label">PayPal</div><div class="sum-value" id="sumPaypal">$0.00</div></div>
     <div class="sum-card" data-pay="paylah" style="display:none"><div class="sum-label">PayLah</div><div class="sum-value" id="sumPaylah">$0.00</div></div>
     <div class="sum-card" data-pay="paynow" style="display:none"><div class="sum-label">PayNow</div><div class="sum-value" id="sumPaynow">$0.00</div></div>
+    <div class="sum-card" data-pay="zelle" style="display:none"><div class="sum-label">Zelle</div><div class="sum-value" id="sumZelle">$0.00</div></div>
   </div>
 
   <div class="history-section">
@@ -751,6 +754,7 @@
         <div class="modal-pay-btn" data-pay="paypal">PAYPAL</div>
         <div class="modal-pay-btn" data-pay="paylah" style="display:none">PAYLAH</div>
         <div class="modal-pay-btn" data-pay="paynow" style="display:none">PAYNOW</div>
+        <div class="modal-pay-btn" data-pay="zelle" style="display:none">ZELLE</div>
       </div>
     </div>
     <div class="modal-field">
@@ -793,7 +797,8 @@
     {key:'venmo', label:'VENMO'},
     {key:'paypal', label:'PAYPAL'},
     {key:'paylah', label:'PAYLAH'},
-    {key:'paynow', label:'PAYNOW'}
+    {key:'paynow', label:'PAYNOW'},
+    {key:'zelle', label:'ZELLE'}
   ];
   let enabledPayMethods = new Set(JSON.parse(localStorage.getItem(PAY_METHODS_KEY) || '["cash","venmo","paypal"]'));
   let syncing = false;
@@ -980,7 +985,7 @@
   function renderSummaryAndTotal(){
     const today = getMountainParts().date;
     let total = 0, salesTotal = 0, buysTotal = 0;
-    const byMethod = {cash:0, venmo:0, paypal:0, paylah:0, paynow:0};
+    const byMethod = {cash:0, venmo:0, paypal:0, paylah:0, paynow:0, zelle:0};
     sales.filter(s=>s.date===today).forEach(s=>{
       if(s.type === 'buy') { buysTotal += s.amount; total -= s.amount; }
       else { salesTotal += s.amount; total += s.amount; }
@@ -992,6 +997,7 @@
     document.getElementById('sumPaypal').textContent = fmt(byMethod.paypal);
     document.getElementById('sumPaylah').textContent = fmt(byMethod.paylah);
     document.getElementById('sumPaynow').textContent = fmt(byMethod.paynow);
+    document.getElementById('sumZelle').textContent = fmt(byMethod.zelle);
     breakdownSales.textContent = fmt(salesTotal);
     breakdownBuys.textContent = fmt(buysTotal);
     saleCount.textContent = sales.filter(s=>s.date===today).length;

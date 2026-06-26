@@ -267,7 +267,8 @@ function upsertSaleRow(sheet, sale) {
     'venmo':  {bg: '#D3E5EF', fg: '#2E6CA4'},
     'paypal': {bg: '#E2DDEF', fg: '#5B4B9A'},
     'paylah': {bg: '#FDECEA', fg: '#B71C1C'},
-    'paynow': {bg: '#E0F2F1', fg: '#00695C'}
+    'paynow': {bg: '#E0F2F1', fg: '#00695C'},
+    'zelle':  {bg: '#E3F2FD', fg: '#1565C0'}
   };
   var pc = payColors[sale.pay] || {bg: '#F1F1EF', fg: '#787774'};
   sheet.getRange(row, 3).setBackground(pc.bg).setFontColor(pc.fg).setFontWeight('bold').setHorizontalAlignment('center');
