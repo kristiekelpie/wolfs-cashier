@@ -21,9 +21,14 @@ var PHOTOS_ROOT = "Wolf's Cashier";
 function getPhotoDayFolder(dateStr) {
   var rootFolders = DriveApp.getFoldersByName(PHOTOS_ROOT);
   var rootFolder;
-  if (rootFolders.hasNext()) {
-    rootFolder = rootFolders.next();
-  } else {
+  while (rootFolders.hasNext()) {
+    var folder = rootFolders.next();
+    if (!folder.isTrashed()) {
+      rootFolder = folder;
+      break;
+    }
+  }
+  if (!rootFolder) {
     rootFolder = DriveApp.createFolder(PHOTOS_ROOT);
   }
 
@@ -72,7 +77,12 @@ function getSpreadsheet() {
   // Move it into the Wolf's Cashier folder
   var file = DriveApp.getFileById(ss.getId());
   var rootFolders = DriveApp.getFoldersByName(PHOTOS_ROOT);
-  var rootFolder = rootFolders.hasNext() ? rootFolders.next() : DriveApp.createFolder(PHOTOS_ROOT);
+  var rootFolder;
+  while (rootFolders.hasNext()) {
+    var f = rootFolders.next();
+    if (!f.isTrashed()) { rootFolder = f; break; }
+  }
+  if (!rootFolder) rootFolder = DriveApp.createFolder(PHOTOS_ROOT);
   rootFolder.addFile(file);
   DriveApp.getRootFolder().removeFile(file);
   props.setProperty('SPREADSHEET_ID', ss.getId());
