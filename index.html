@@ -183,9 +183,9 @@
     transition:all 0.1s;
   }
   .type-btn.active{
-    background:var(--copper-dim);
-    border-color:var(--copper);
-    color:var(--copper);
+    background:rgba(180,160,210,0.15);
+    border-color:rgba(180,160,210,0.6);
+    color:#c4aee8;
   }
   .type-btn.active.buy{
     background:#3d4a5c;
@@ -1020,7 +1020,8 @@
       }
       return '<div class="h-row">' +
         '<div class="h-left">' +
-          (s.type === 'buy' ? typeHtml : '<span class="h-tag ' + s.pay + '">' + s.pay + '</span>') +
+          '<span class="h-tag ' + s.pay + '">' + s.pay + '</span>' +
+          (s.type === 'buy' ? typeHtml : '') +
           tradeHtml +
           '<span class="h-time">' + s.time + '</span>' +
         '</div>' +
