@@ -240,7 +240,7 @@ function setupSheetTemplate(sheet, dateStr) {
   sheet.getRange('J1').setValue('Total Sales').setFontSize(9).setFontColor('#888888').setFontFamily('Arial').setFontWeight('bold');
   sheet.getRange('J2').setFormula('=SUMIF(D4:D1000,"sale",B4:B1000)').setNumberFormat('$#,##0.00').setFontSize(16).setFontWeight('bold').setFontColor('#1a7a3c').setFontFamily('Arial');
   sheet.getRange('K1').setValue('Total Buys').setFontSize(9).setFontColor('#888888').setFontFamily('Arial').setFontWeight('bold');
-  sheet.getRange('K2').setFormula('=SUMIF(D4:D1000,"buy",B4:B1000)').setNumberFormat('$#,##0.00').setFontSize(16).setFontWeight('bold').setFontColor('#b45309').setFontFamily('Arial');
+  sheet.getRange('K2').setFormula('=SUMIF(D4:D1000,"buy",B4:B1000)').setNumberFormat('$#,##0.00').setFontSize(16).setFontWeight('bold').setFontColor('#2E6CA4').setFontFamily('Arial');
   sheet.setColumnWidth(10, 110);
   sheet.setColumnWidth(11, 110);
 }
@@ -273,7 +273,7 @@ function upsertSaleRow(sheet, sale) {
   // Type badge
   var typeColors = {
     'sale': {bg: '#E8F5E9', fg: '#2E7D32'},
-    'buy':  {bg: '#FFF3E0', fg: '#E65100'}
+    'buy':  {bg: '#D3E5EF', fg: '#2E6CA4'}
   };
   var tc = typeColors[sale.type] || {bg: '#F1F1EF', fg: '#787774'};
   sheet.getRange(row, 4).setBackground(tc.bg).setFontColor(tc.fg).setFontWeight('bold').setHorizontalAlignment('center');
