@@ -72,7 +72,16 @@ function getSpreadsheet() {
   // Standalone deployment — auto-create a spreadsheet on first use
   var props = PropertiesService.getScriptProperties();
   var storedId = props.getProperty('SPREADSHEET_ID');
-  if (storedId) return SpreadsheetApp.openById(storedId);
+  if (storedId) {
+    try {
+      var checkFile = DriveApp.getFileById(storedId);
+      if (!checkFile.isTrashed()) {
+        return SpreadsheetApp.openById(storedId);
+      }
+    } catch(e) {
+      // file permanently deleted — fall through to create a new one
+    }
+  }
   ss = SpreadsheetApp.create("Wolf's Cashier Sales");
   // Move it into the Wolf's Cashier folder
   var file = DriveApp.getFileById(ss.getId());
