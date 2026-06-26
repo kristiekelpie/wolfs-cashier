@@ -1749,12 +1749,10 @@
       }
     });
 
-    // Remove local sales that were marked synced but no longer exist on the server
-    // (i.e. deleted from another device) — only for today, only if synced.
-    sales = sales.filter(s=>{
-      if(s.date !== today) return true;
-      if(!s.synced) return true; // keep unsynced local-only sales
-      return !!serverById[s.id];
+    // If a local sale is missing from the server, re-queue it rather than delete it.
+    // localStorage is the source of truth — Drive/Sheets is always downstream.
+    sales.forEach(s=>{
+      if(s.date === today && s.synced && !serverById[s.id]) s.synced = false;
     });
   }
 
