@@ -675,13 +675,6 @@
         <span class="sm-close" id="smClose">✕</span>
       </div>
       <div class="sm-section">
-        <div class="sm-section-label">Sync</div>
-        <input type="text" id="smWebhookUrl" placeholder="https://script.google.com/macros/s/.../exec">
-        <div class="save-btn" id="smSaveWebhook">Save</div>
-        <div class="hint">Paste the Web App URL from your Apps Script deployment. Sales sync here automatically when online.</div>
-        <div class="hint" style="text-decoration:underline;cursor:pointer;" id="smSetupLink">Set up a new vendor →</div>
-      </div>
-      <div class="sm-section">
         <div class="sm-section-label">Payment Methods</div>
         <div class="hint">CASH is always on. Enable the methods you accept.</div>
         <div id="pmToggles"></div>
@@ -1602,24 +1595,12 @@
 
   // ---- Settings / webhook ----
   gearBtn.addEventListener('click', function(){
-    document.getElementById('smWebhookUrl').value = webhookUrl;
     renderPayMethodToggles();
     loadQrSettings();
     document.getElementById('settingsModal').classList.remove('hidden');
   });
   document.getElementById('smClose').addEventListener('click', function(){
     document.getElementById('settingsModal').classList.add('hidden');
-  });
-  document.getElementById('smSaveWebhook').addEventListener('click', async function(){
-    const val = document.getElementById('smWebhookUrl').value.trim();
-    webhookUrl = val;
-    localStorage.setItem(WEBHOOK_KEY, val);
-    document.getElementById('settingsModal').classList.add('hidden');
-    await attemptSync();
-  });
-  document.getElementById('smSetupLink').addEventListener('click', function(){
-    document.getElementById('settingsModal').classList.add('hidden');
-    showOnboarding();
   });
   document.getElementById('smCloseDayBtn').addEventListener('click', function(){
     document.getElementById('settingsModal').classList.add('hidden');
