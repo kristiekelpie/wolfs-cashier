@@ -324,7 +324,7 @@ function updateSalePhotoUrl(saleId, dateStr, photoUrl) {
 
   var row = findRowById(sheet, saleId);
   if (row) {
-    var photoCell = sheet.getRange(row, 6);
+    var photoCell = sheet.getRange(row, 7);
     photoCell.setValue(photoUrl);
     photoCell.setFontColor('#2E6CA4');
     photoCell.setUnderline(true);
