@@ -79,43 +79,44 @@ function getSpreadsheet() {
   return ss;
 }
 
+function handleSyncData(data) {
+  // Handle photo upload
+  if (data.action === 'uploadPhoto' && data.photo) {
+    var photoUrl = savePhotoToDrive(data.photo, data.saleId, data.date);
+    if (photoUrl) {
+      updateSalePhotoUrl(data.saleId, data.date, photoUrl);
+    }
+    return jsonResponse({status: 'success', photoUrl: photoUrl});
+  }
+
+  var sales = data.sales || [];
+  var deletes = data.deletes || [];
+  var ss = getSpreadsheet();
+  var results = [];
+
+  sales.forEach(function(sale) {
+    var sheet = getOrCreateDateSheet(ss, sale.date);
+    upsertSaleRow(sheet, sale);
+    results.push({id: sale.id, status: 'ok'});
+  });
+
+  deletes.forEach(function(del) {
+    var sheet = ss.getSheetByName(del.date);
+    if (sheet) deleteRowById(sheet, del.id);
+    if (del.photoFileId) {
+      try { DriveApp.getFileById(del.photoFileId).setTrashed(true); } catch(e) {}
+    }
+  });
+
+  return jsonResponse({status: 'success', synced: results.length, deleted: deletes.length});
+}
+
 function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
       return jsonResponse({status: 'error', message: 'No POST body received'});
     }
-    var data = JSON.parse(e.postData.contents);
-
-    // Handle photo upload
-    if (data.action === 'uploadPhoto' && data.photo) {
-      var photoUrl = savePhotoToDrive(data.photo, data.saleId, data.date);
-      if (photoUrl) {
-        updateSalePhotoUrl(data.saleId, data.date, photoUrl);
-      }
-      return jsonResponse({status: 'success', photoUrl: photoUrl});
-    }
-
-    var sales = data.sales || []; // array of {id, date, time, amount, pay, notes, photoUrl}
-    var deletes = data.deletes || []; // array of {id, date}
-
-    var ss = getSpreadsheet();
-    var results = [];
-
-    sales.forEach(function(sale) {
-      var sheet = getOrCreateDateSheet(ss, sale.date);
-      upsertSaleRow(sheet, sale);
-      results.push({id: sale.id, status: 'ok'});
-    });
-
-    deletes.forEach(function(del) {
-      var sheet = ss.getSheetByName(del.date);
-      if (sheet) deleteRowById(sheet, del.id);
-      if (del.photoFileId) {
-        try { DriveApp.getFileById(del.photoFileId).setTrashed(true); } catch(e) {}
-      }
-    });
-
-    return jsonResponse({status: 'success', synced: results.length, deleted: deletes.length});
+    return handleSyncData(JSON.parse(e.postData.contents));
   } catch (err) {
     return jsonResponse({status: 'error', message: err.message});
   }
@@ -123,6 +124,10 @@ function doPost(e) {
 
 function doGet(e) {
   try {
+    // Sync payload sent as URL param (workaround for Apps Script POST→GET redirect)
+    if (e.parameter.payload) {
+      return handleSyncData(JSON.parse(e.parameter.payload));
+    }
     var date = e.parameter.date;
     if (!date) {
       return jsonResponse({status: 'ok', message: 'TCG Sales Log API is running'});
