@@ -163,25 +163,27 @@ function doGet(e) {
   }
 }
 
+// Column layout: A=Time B=Amount C=Payment D=Type E=Trade F=Notes G=Photo H=ID(hidden)
+
 function readSalesFromSheet(sheet, date) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 4) return [];
-  var range = sheet.getRange(4, 1, lastRow - 3, 8).getValues(); // A:H from row 4
+  var range = sheet.getRange(4, 1, lastRow - 3, 8).getValues();
   var sales = [];
   for (var i = 0; i < range.length; i++) {
     var row = range[i];
-    var id = row[4];
-    if (!id) continue; // skip blank rows
+    var id = row[7]; // H
+    if (!id) continue;
     sales.push({
       id: id,
       date: date,
       time: row[0],
       amount: row[1],
       pay: row[2],
-      notes: row[3],
-      photo: row[5] || null, // return in 'photo' field for compatibility
-      type: row[6] || 'sale',
-      isTrade: row[7] === 'Yes' || row[7] === true
+      type: row[3] || 'sale',
+      isTrade: row[4] === 'Yes' || row[4] === true,
+      notes: row[5],
+      photo: row[6] || null
     });
   }
   return sales;
@@ -190,7 +192,6 @@ function readSalesFromSheet(sheet, date) {
 function getOrCreateDateSheet(ss, dateStr) {
   var sheet = ss.getSheetByName(dateStr);
   if (sheet) return sheet;
-
   sheet = ss.insertSheet(dateStr);
   setupSheetTemplate(sheet, dateStr);
   return sheet;
@@ -200,45 +201,48 @@ function setupSheetTemplate(sheet, dateStr) {
   // Title row
   sheet.getRange('A1').setValue('Sales — ' + dateStr);
   sheet.getRange('A1:H1').merge();
-  sheet.getRange('A1').setFontSize(16).setFontWeight('bold').setFontColor('#37352F');
-  sheet.setRowHeight(1, 36);
+  sheet.getRange('A1')
+    .setFontSize(15).setFontWeight('bold').setFontColor('#1a1a1a').setFontFamily('Arial');
+  sheet.setRowHeight(1, 40);
 
-  // Header row (A–D visible, E hidden ID, F photo, G type, H trade)
-  sheet.getRange(3, 1, 1, 4).setValues([['Time', 'Amount', 'Payment', 'Notes']]);
-  sheet.getRange(3, 6).setValue('Photo');
-  sheet.getRange(3, 7).setValue('Type');
-  sheet.getRange(3, 8).setValue('Trade');
-  var headerRange = sheet.getRange(3, 1, 1, 4);
-  headerRange.setFontWeight('bold')
-    .setFontColor('#787774')
-    .setBackground('#F7F6F3')
-    .setFontSize(10);
-  sheet.setRowHeight(3, 28);
+  // Blank separator row 2 (used for total summary on right)
+  sheet.setRowHeight(2, 10);
 
-  // Column widths — Notion-ish proportions
-  sheet.setColumnWidth(1, 90);   // Time
+  // Header row 3: A–G visible, H hidden ID
+  sheet.getRange(3, 1, 1, 7).setValues([['Time', 'Amount', 'Payment', 'Type', 'Trade', 'Notes', 'Photo']]);
+  var headerRange = sheet.getRange(3, 1, 1, 7);
+  headerRange
+    .setFontWeight('bold')
+    .setFontColor('#555555')
+    .setBackground('#F0F0F0')
+    .setFontSize(10)
+    .setFontFamily('Arial')
+    .setHorizontalAlignment('left');
+  sheet.setRowHeight(3, 30);
+
+  // Column widths
+  sheet.setColumnWidth(1, 105);  // Time
   sheet.setColumnWidth(2, 100);  // Amount
-  sheet.setColumnWidth(3, 110);  // Payment
-  sheet.setColumnWidth(4, 280);  // Notes
-  sheet.hideColumns(5);          // Column E holds the sale ID — hidden, used for edit/sync matching
-  sheet.setColumnWidth(6, 220);  // Photo URL
-  sheet.setColumnWidth(7, 70);   // Type
-  sheet.setColumnWidth(8, 70);   // Trade
+  sheet.setColumnWidth(3, 100);  // Payment
+  sheet.setColumnWidth(4, 75);   // Type
+  sheet.setColumnWidth(5, 65);   // Trade
+  sheet.setColumnWidth(6, 280);  // Notes
+  sheet.setColumnWidth(7, 220);  // Photo URL
+  sheet.hideColumns(8);          // H: hidden sale ID
 
-  // Freeze header
+  // Freeze rows 1–3
   sheet.setFrozenRows(3);
 
-  // Light borders under header
-  headerRange.setBorder(false, false, true, false, false, false, '#E3E2E0', SpreadsheetApp.BorderStyle.SOLID);
+  // Bottom border under header
+  headerRange.setBorder(false, false, true, false, false, false, '#CCCCCC', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-  // Font for whole sheet
-  sheet.getRange('A1:F200').setFontFamily('Arial');
-
-  // Summary box — column G (F is Photo)
-  sheet.getRange('G1').setValue('Total');
-  sheet.getRange('G1').setFontSize(10).setFontColor('#787774').setFontWeight('bold');
-  sheet.getRange('G2').setFormula('=SUM(B4:B1000)');
-  sheet.getRange('G2').setNumberFormat('$#,##0.00').setFontSize(14).setFontWeight('bold').setFontColor('#2E7D32');
+  // Total summary — floated right in row 1
+  sheet.getRange('J1').setValue('Total Sales').setFontSize(9).setFontColor('#888888').setFontFamily('Arial').setFontWeight('bold');
+  sheet.getRange('J2').setFormula('=SUMIF(D4:D1000,"sale",B4:B1000)').setNumberFormat('$#,##0.00').setFontSize(16).setFontWeight('bold').setFontColor('#1a7a3c').setFontFamily('Arial');
+  sheet.getRange('K1').setValue('Total Buys').setFontSize(9).setFontColor('#888888').setFontFamily('Arial').setFontWeight('bold');
+  sheet.getRange('K2').setFormula('=SUMIF(D4:D1000,"buy",B4:B1000)').setNumberFormat('$#,##0.00').setFontSize(16).setFontWeight('bold').setFontColor('#b45309').setFontFamily('Arial');
+  sheet.setColumnWidth(10, 110);
+  sheet.setColumnWidth(11, 110);
 }
 
 function upsertSaleRow(sheet, sale) {
@@ -246,46 +250,52 @@ function upsertSaleRow(sheet, sale) {
   var row = existingRow || nextEmptyRow(sheet);
 
   sheet.getRange(row, 1).setValue(sale.time);
-  sheet.getRange(row, 2).setValue(Number(sale.amount));
-  sheet.getRange(row, 2).setNumberFormat('$#,##0.00');
+  sheet.getRange(row, 2).setValue(Number(sale.amount)).setNumberFormat('$#,##0.00');
   sheet.getRange(row, 3).setValue(sale.pay);
-  sheet.getRange(row, 4).setValue(sale.notes || '');
-  sheet.getRange(row, 5).setValue(sale.id); // hidden ID column
-  if (sale.photoUrl) {
-    var photoCell = sheet.getRange(row, 6);
-    photoCell.setValue(sale.photoUrl);
-    photoCell.setFontColor('#2E6CA4');
-    photoCell.setUnderline(true);
+  sheet.getRange(row, 4).setValue(sale.type || 'sale');
+  sheet.getRange(row, 5).setValue(sale.isTrade ? 'Yes' : '');
+  sheet.getRange(row, 6).setValue(sale.notes || '');
+  var photoVal = sale.photoUrl || sale.photo || '';
+  if (photoVal) {
+    sheet.getRange(row, 7).setValue(photoVal).setFontColor('#2E6CA4').setUnderline(true);
   }
-  // If sale has photo field (from readSalesFromSheet), use it for column F
-  if (sale.photo && !sale.photoUrl) {
-    sheet.getRange(row, 6).setValue(sale.photo);
-  }
-  // Type column (G)
-  sheet.getRange(row, 7).setValue(sale.type || 'sale');
-  // Trade column (H)
-  sheet.getRange(row, 8).setValue(sale.isTrade ? 'Yes' : '');
+  sheet.getRange(row, 8).setValue(sale.id);
 
-  // Color tag per payment method, Notion-style soft badges
-  var payCell = sheet.getRange(row, 3);
-  var colors = {
+  // Payment badge
+  var payColors = {
     'cash':   {bg: '#DDEDEA', fg: '#0F7B6C'},
     'venmo':  {bg: '#D3E5EF', fg: '#2E6CA4'},
     'paypal': {bg: '#E2DDEF', fg: '#5B4B9A'}
   };
-  var c = colors[sale.pay] || {bg: '#F1F1EF', fg: '#787774'};
-  payCell.setBackground(c.bg).setFontColor(c.fg).setFontWeight('bold').setHorizontalAlignment('center');
+  var pc = payColors[sale.pay] || {bg: '#F1F1EF', fg: '#787774'};
+  sheet.getRange(row, 3).setBackground(pc.bg).setFontColor(pc.fg).setFontWeight('bold').setHorizontalAlignment('center');
 
-  // Subtle row border
-  sheet.getRange(row, 1, 1, 8).setBorder(false, false, true, false, false, false, '#EDECEA', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange(row, 1, 1, 4).setFontSize(11).setFontColor('#37352F');
+  // Type badge
+  var typeColors = {
+    'sale': {bg: '#E8F5E9', fg: '#2E7D32'},
+    'buy':  {bg: '#FFF3E0', fg: '#E65100'}
+  };
+  var tc = typeColors[sale.type] || {bg: '#F1F1EF', fg: '#787774'};
+  sheet.getRange(row, 4).setBackground(tc.bg).setFontColor(tc.fg).setFontWeight('bold').setHorizontalAlignment('center');
+
+  // Trade badge
+  if (sale.isTrade) {
+    sheet.getRange(row, 5).setBackground('#EDE7F6').setFontColor('#4527A0').setFontWeight('bold').setHorizontalAlignment('center');
+  }
+
+  // Row styling
+  sheet.getRange(row, 1, 1, 7)
+    .setFontSize(11).setFontFamily('Arial').setFontColor('#1a1a1a')
+    .setBorder(false, false, true, false, false, false, '#E8E8E8', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(row, 1).setFontColor('#555555').setFontSize(10); // Time slightly dimmer
+  sheet.getRange(row, 2).setFontWeight('bold').setFontColor('#1a1a1a'); // Amount bold
 }
 
 function findRowById(sheet, id) {
   if (!id) return null;
   var lastRow = sheet.getLastRow();
   if (lastRow < 4) return null;
-  var ids = sheet.getRange(4, 5, lastRow - 3, 1).getValues(); // column E, from row 4 down
+  var ids = sheet.getRange(4, 8, lastRow - 3, 1).getValues(); // column H
   for (var i = 0; i < ids.length; i++) {
     if (ids[i][0] === id) return 4 + i;
   }
