@@ -75,11 +75,17 @@ function getSpreadsheet() {
   if (storedId) {
     try {
       var checkFile = DriveApp.getFileById(storedId);
-      if (!checkFile.isTrashed()) {
-        return SpreadsheetApp.openById(storedId);
+      var trashed = checkFile.isTrashed();
+      if (!trashed) {
+        var parents = checkFile.getParents();
+        while (parents.hasNext()) {
+          if (parents.next().isTrashed()) { trashed = true; break; }
+        }
       }
+      if (!trashed) return SpreadsheetApp.openById(storedId);
+      props.deleteProperty('SPREADSHEET_ID'); // clear stale ID so next run creates fresh
     } catch(e) {
-      // file permanently deleted — fall through to create a new one
+      props.deleteProperty('SPREADSHEET_ID');
     }
   }
   ss = SpreadsheetApp.create("Wolf's Cashier Sales");
