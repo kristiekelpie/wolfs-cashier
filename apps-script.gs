@@ -243,12 +243,13 @@ function setupSheetTemplate(sheet, dateStr) {
   headerRange.setBorder(false, false, true, false, false, false, '#CCCCCC', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
   // Total summary — floated right in row 1
-  sheet.getRange('I1').setValue('Total Sales').setFontSize(9).setFontColor('#888888').setFontFamily('Arial').setFontWeight('bold');
-  sheet.getRange('I2').setFormula('=SUMIF(D4:D1000,"sale",B4:B1000)').setNumberFormat('$#,##0.00').setFontSize(16).setFontWeight('bold').setFontColor('#1a7a3c').setFontFamily('Arial');
-  sheet.getRange('J1').setValue('Total Buys').setFontSize(9).setFontColor('#888888').setFontFamily('Arial').setFontWeight('bold');
-  sheet.getRange('J2').setFormula('=SUMIF(D4:D1000,"buy",B4:B1000)').setNumberFormat('$#,##0.00').setFontSize(16).setFontWeight('bold').setFontColor('#2E6CA4').setFontFamily('Arial');
-  sheet.setColumnWidth(9, 110);
-  sheet.setColumnWidth(10, 110);
+  sheet.getRange('A2').setFormula('=SUMIF(D4:D1000,"sale",B4:B1000)')
+    .setNumberFormat('"SALES  $"#,##0.00')
+    .setFontSize(13).setFontWeight('bold').setFontColor('#1a7a3c').setFontFamily('Arial');
+  sheet.getRange('B2').setFormula('=SUMIF(D4:D1000,"buy",B4:B1000)')
+    .setNumberFormat('"BUYS  $"#,##0.00')
+    .setFontSize(13).setFontWeight('bold').setFontColor('#2E6CA4').setFontFamily('Arial');
+  sheet.setRowHeight(2, 28);
 }
 
 function upsertSaleRow(sheet, sale) {
