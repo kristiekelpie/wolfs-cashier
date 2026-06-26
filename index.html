@@ -705,6 +705,22 @@
             <input type="file" id="qrFileInput2" accept="image/*" style="display:none">
           </div>
         </div>
+        <div class="qr-slot">
+          <div class="qr-slot-row">
+            <input type="text" id="qrTitle3" placeholder="Label (e.g. PayLah)" style="flex:1">
+            <label class="qr-upload-btn" for="qrFileInput3">Upload</label>
+            <img class="qr-thumb empty" id="qrThumb3" src="" alt="">
+            <input type="file" id="qrFileInput3" accept="image/*" style="display:none">
+          </div>
+        </div>
+        <div class="qr-slot">
+          <div class="qr-slot-row">
+            <input type="text" id="qrTitle4" placeholder="Label (e.g. Zelle)" style="flex:1">
+            <label class="qr-upload-btn" for="qrFileInput4">Upload</label>
+            <img class="qr-thumb empty" id="qrThumb4" src="" alt="">
+            <input type="file" id="qrFileInput4" accept="image/*" style="display:none">
+          </div>
+        </div>
         <div class="save-btn" id="saveQrBtn">Save QR Codes</div>
       </div>
       <div class="sm-section">
@@ -857,29 +873,56 @@
   <div class="page-dot active"></div>
   <div class="page-dot"></div>
   <div class="page-dot"></div>
+  <div class="page-dot"></div>
+  <div class="page-dot"></div>
 </div>
 
 <!-- QR Code Page 1 -->
 <div class="qr-overlay" id="qrOverlay1">
   <div class="qr-page-nav">
     <span class="qr-nav-back" id="qrBack1">‹</span>
-    <span class="qr-nav-label">Payment QR · 1 of 2</span>
+    <span class="qr-nav-label">Payment QR · 1 of 4</span>
     <span style="width:26px"></span>
   </div>
   <div class="qr-display-label" id="qrDisplayLabel1">QR Code 1</div>
   <div id="qrDisplayWrap1"></div>
-  <div class="qr-swipe-hint" id="qrSwipeHint">Swipe left for next →</div>
+  <div class="qr-swipe-hint">Swipe left for next →</div>
 </div>
 
 <!-- QR Code Page 2 -->
 <div class="qr-overlay" id="qrOverlay2">
   <div class="qr-page-nav">
     <span class="qr-nav-back" id="qrBack2">‹</span>
-    <span class="qr-nav-label">Payment QR · 2 of 2</span>
+    <span class="qr-nav-label">Payment QR · 2 of 4</span>
     <span style="width:26px"></span>
   </div>
   <div class="qr-display-label" id="qrDisplayLabel2">QR Code 2</div>
   <div id="qrDisplayWrap2"></div>
+  <div class="qr-swipe-hint">Swipe left for next →</div>
+</div>
+
+<!-- QR Code Page 3 -->
+<div class="qr-overlay" id="qrOverlay3">
+  <div class="qr-page-nav">
+    <span class="qr-nav-back" id="qrBack3">‹</span>
+    <span class="qr-nav-label">Payment QR · 3 of 4</span>
+    <span style="width:26px"></span>
+  </div>
+  <div class="qr-display-label" id="qrDisplayLabel3">QR Code 3</div>
+  <div id="qrDisplayWrap3"></div>
+  <div class="qr-swipe-hint">Swipe left for next →</div>
+</div>
+
+<!-- QR Code Page 4 -->
+<div class="qr-overlay" id="qrOverlay4">
+  <div class="qr-page-nav">
+    <span class="qr-nav-back" id="qrBack4">‹</span>
+    <span class="qr-nav-label">Payment QR · 4 of 4</span>
+    <span style="width:26px"></span>
+  </div>
+  <div class="qr-display-label" id="qrDisplayLabel4">QR Code 4</div>
+  <div id="qrDisplayWrap4"></div>
+  <div class="qr-swipe-hint">← Swipe left to return</div>
 </div>
 
 <script>
@@ -1879,11 +1922,14 @@
 
   // ---- QR Code Pages ----
   const QR_KEY = 'tcg_qr_codes_v1';
-  let qrCodes = JSON.parse(localStorage.getItem(QR_KEY) || '[{"title":"","image":""},{"title":"","image":""}]');
-  let currentQrPage = 0; // 0=main, 1=QR1, 2=QR2
+  const QR_COUNT = 4;
+  let qrCodes = JSON.parse(localStorage.getItem(QR_KEY) || '[{"title":"","image":""},{"title":"","image":""},{"title":"","image":""},{"title":"","image":""}]');
+  // Ensure always 4 slots (upgrade from older 2-slot storage)
+  while(qrCodes.length < QR_COUNT) qrCodes.push({title:'',image:''});
+  let currentQrPage = 0; // 0=main, 1–4=QR pages
 
   function renderQrDisplays(){
-    for(let i=1;i<=2;i++){
+    for(let i=1;i<=QR_COUNT;i++){
       const qr = qrCodes[i-1]||{};
       document.getElementById('qrDisplayLabel'+i).textContent = qr.title || ('QR Code '+i);
       const wrap = document.getElementById('qrDisplayWrap'+i);
@@ -1893,31 +1939,38 @@
         wrap.innerHTML = '<div class="qr-empty"><span style="font-size:36px">📷</span><span>No QR code yet</span><span style="font-size:11px;margin-top:2px">Upload one in Settings ⚙</span></div>';
       }
     }
-    const hint = document.getElementById('qrSwipeHint');
-    if(hint) hint.style.display = (qrCodes[1]&&qrCodes[1].image) ? '' : 'none';
   }
 
-  function setQrPage(page){
+  function applyQrClasses(page){
     currentQrPage = page;
-    const ov1 = document.getElementById('qrOverlay1');
-    const ov2 = document.getElementById('qrOverlay2');
-    if(page===0){
-      ov1.classList.remove('slide-in','slide-behind');
-      ov2.classList.remove('slide-in','slide-behind');
-    } else if(page===1){
-      ov1.classList.add('slide-in'); ov1.classList.remove('slide-behind');
-      ov2.classList.remove('slide-in','slide-behind');
-    } else {
-      ov1.classList.remove('slide-in'); ov1.classList.add('slide-behind');
-      ov2.classList.add('slide-in'); ov2.classList.remove('slide-behind');
+    for(let i=1;i<=QR_COUNT;i++){
+      const ov = document.getElementById('qrOverlay'+i);
+      ov.classList.remove('slide-in','slide-behind');
+      if(i < page) ov.classList.add('slide-behind');
+      else if(i === page) ov.classList.add('slide-in');
     }
     const dots = document.getElementById('pageDots');
     dots.classList.toggle('visible', page>0);
     document.querySelectorAll('.page-dot').forEach((d,i)=>d.classList.toggle('active',i===page));
   }
 
+  function setQrPage(page){
+    const isWrap = (currentQrPage===QR_COUNT && page===0) || (currentQrPage===0 && page===QR_COUNT);
+    if(isWrap){
+      for(let i=1;i<=QR_COUNT;i++) document.getElementById('qrOverlay'+i).style.transition='none';
+      applyQrClasses(page);
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        for(let i=1;i<=QR_COUNT;i++) document.getElementById('qrOverlay'+i).style.transition='';
+      }));
+    } else {
+      applyQrClasses(page);
+    }
+  }
+
   document.getElementById('qrBack1').addEventListener('click',()=>setQrPage(0));
   document.getElementById('qrBack2').addEventListener('click',()=>setQrPage(1));
+  document.getElementById('qrBack3').addEventListener('click',()=>setQrPage(2));
+  document.getElementById('qrBack4').addEventListener('click',()=>setQrPage(3));
 
   // Swipe detection
   let swipeX=0, swipeY=0, swipeT=0;
@@ -1929,13 +1982,13 @@
     const dx=e.changedTouches[0].clientX-swipeX;
     const dy=e.changedTouches[0].clientY-swipeY;
     if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.3) return;
-    if(dx<0&&currentQrPage<2) setQrPage(currentQrPage+1);
-    else if(dx>0&&currentQrPage>0) setQrPage(currentQrPage-1);
+    if(dx<0) setQrPage((currentQrPage+1)%(QR_COUNT+1));
+    else if(dx>0) setQrPage((currentQrPage+QR_COUNT)%(QR_COUNT+1));
   },{passive:true});
 
   // QR settings
   function loadQrSettings(){
-    for(let i=1;i<=2;i++){
+    for(let i=1;i<=QR_COUNT;i++){
       const qr=qrCodes[i-1]||{};
       document.getElementById('qrTitle'+i).value=qr.title||'';
       const thumb=document.getElementById('qrThumb'+i);
@@ -1943,7 +1996,7 @@
       else{thumb.src='';thumb.classList.add('empty');}
     }
   }
-  for(let i=1;i<=2;i++){
+  for(let i=1;i<=QR_COUNT;i++){
     (function(idx){
       document.getElementById('qrFileInput'+idx).addEventListener('change',function(){
         const file=this.files[0]; if(!file) return;
@@ -1958,7 +2011,7 @@
     })(i);
   }
   document.getElementById('saveQrBtn').addEventListener('click',function(){
-    for(let i=1;i<=2;i++) qrCodes[i-1].title=document.getElementById('qrTitle'+i).value.trim();
+    for(let i=1;i<=QR_COUNT;i++) qrCodes[i-1].title=document.getElementById('qrTitle'+i).value.trim();
     localStorage.setItem(QR_KEY,JSON.stringify(qrCodes));
     renderQrDisplays();
     document.getElementById('settingsModal').classList.add('hidden');
