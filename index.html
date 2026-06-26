@@ -255,6 +255,8 @@
   .h-tag.cash{background:#1f3a26; color:var(--green);}
   .h-tag.venmo{background:#1e3650; color:#5fa8e0;}
   .h-tag.paypal{background:#2b2a50; color:#9090e0;}
+  .h-tag.paylah{background:#3d1a1a; color:#e07070;}
+  .h-tag.paynow{background:#1a2e2b; color:#5fbfb0;}
   .h-tag.buy{background:#3d4a5c; color:#7fa3c8;}
   .h-tag.trade{background:#4a3a2a; color:#c9a57a;}
   .h-time{color:var(--text-dim); font-size:11px;}
@@ -460,6 +462,14 @@
     border-radius:6px; padding:9px; text-align:center; font-size:13px; font-weight:700; cursor:pointer;
   }
   .sm-section .hint{font-size:11px; color:var(--text-dim); line-height:1.4;}
+  .pm-toggle-row{display:flex; align-items:center; justify-content:space-between; padding:5px 0;}
+  .pm-toggle-label{font-size:13px; color:var(--text); font-weight:600; letter-spacing:0.05em;}
+  .pm-toggle{position:relative; display:inline-block; width:38px; height:22px; cursor:pointer; flex-shrink:0;}
+  .pm-toggle input{opacity:0; width:0; height:0; position:absolute;}
+  .pm-slider{position:absolute; inset:0; background:var(--line); border-radius:22px; transition:background 0.2s;}
+  .pm-slider:before{content:''; position:absolute; width:16px; height:16px; left:3px; top:3px; background:var(--text-dim); border-radius:50%; transition:transform 0.2s, background 0.2s;}
+  .pm-toggle input:checked + .pm-slider{background:var(--copper-dim);}
+  .pm-toggle input:checked + .pm-slider:before{transform:translateX(16px); background:var(--copper);}
   .sm-section select{
     background:var(--bg); border:1px solid var(--line); border-radius:6px;
     color:var(--text); padding:8px 10px; font-size:13px; outline:none; font-family:inherit;
@@ -618,6 +628,11 @@
         <div class="hint" style="text-decoration:underline;cursor:pointer;" id="smSetupLink">Set up a new vendor →</div>
       </div>
       <div class="sm-section">
+        <div class="sm-section-label">Payment Methods</div>
+        <div class="hint">CASH is always on. Enable the methods you accept.</div>
+        <div id="pmToggles"></div>
+      </div>
+      <div class="sm-section">
         <div class="close-day-card" id="smCloseDayBtn">
           <div class="cdc-icon"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAEZklEQVR4nO2dS4wNQRSGe4QxCEEQDBZE2LDBglgQC0YiRGLJUgiJpa2NxNbSdpbCxiOxYCFe1zMeEQuRiGckHjEj3nxSlLgmt7pvd1VXVXefL5nkZrpPn7/O37equ7qnJkkEQRAEQRAEQRAEQRCsAXqBvUAL+KB/rgB71LbQ+hoFMBu4hZmbwKzQOpv0zbhFNjeAMaH11h7+dFPdsju03trDnzGjnZNAv/5Rn9u5HFpv7QGGRxS9v23bnBHbhsKqrTlAD/B5RNHnpBii9u0Jq7qmAAuB8x3Gib9dljLjVIftKmZhaP21ARgN7NP3GUX5BByQ+xNLgKXANdxxB1geul2VA+gDDgJfDYU9A9xLKfxdvU8nvupj94VuZyUAVgMPDMV8DWzX+43TXVn71ElL/+53sdW+OqYTKsfq0O2NFmA8cAj4YSigGrxnFzjuDGDQcMyfwBFgYjmtqijABuCxoWgvgK0OcmwEnhhyPAe2JE0HmKLPUNPZOwhMdZhvEnA45Vt4FJieNBFgG/DKUJhHwLpA49QbYGfSFNS0OHDcUIxv+gye4OlKTt2bfDFoOQ3MTWo+7bFDn4Gme4QVge51rhs0vddXbaOSOgHMB87GehdN9mzABWBRUnW6aOhFYHESCcAC4JxB60d94lTzoRewBLhata6Af13rW4P228CypCqoMwjYnzFYzkuqf/FxCBibxAywErhvaMTbKl5Okn55/hBYk0Q87fG9jjdcZN/AxjP9AqxPmfao1ZQE6VM8qq2bQ4qbrM+Mn9GfNf57g2m+RW0CnqX0q2uTmgOsShkv1Zizw4eImcCxjCuPxjz4IfuK8pT19Is++18aEgjueAoMdGOIqSsS3POkG0MEj4ghVTckM0DIhRgSGWJIZIghkSGGRIYYEhliSGSIIZEhhkSGGNJUQ4qurOA7n2u9JrqNN+1XPMByZQXf+VzrNdEptlO8ab/CAbYrKwTI1+tSrwlX9S1SIKuVFQLk2+tSrwlX9S1SoJErK5zQXUJXKysEyNfyqdc6vkCBrFZWCJBv2Kde6/gCBUrd33a773yu9VrHx1ag2Aqeu6C28a4L5DsfOberF/7K1Gsd30BDhvT7ZFPK0Gsd30BDchlDBq7b2wRDDgDvUmr6Tu/TsStLdUMModCgq18U78qYrOOXXq/SE5ScjxzHU2/n63dzTX++lqfLE0MULvSkGePi+FbxeQN8C6TEgumurN6GuG4gJedzrdc6PrYCxVbw3AW1jS9QIHX97nNyccgyn1e91vEFCtTKsUro5QjytXzqtY4vUCD1DLpbdmXlM+Ewn1e9IQzp1c+gs7jm4pEo9vm86vVuSNsyFOoZtInrLl8awCJfCL1W9c0d8P9fpO4GLumncsP68660FXSKNpCC+ULpNcVn6bQetIR0xJDIEEMiQwyJDDEkMsSQyBBDIkMMiQwxJDLEkLoZIpSLGFJBQ9RKZ0JEC5gNpPwnGsEdqsYbMg0RBEEQBEEQBEEQBCEJxy9jgCaLrdxklQAAAABJRU5ErkJggg==" style="width:28px;height:28px;opacity:0.85;"></div>
           <div class="cdc-text">
@@ -681,6 +696,8 @@
     <div class="pay-btn active" data-pay="cash">CASH</div>
     <div class="pay-btn" data-pay="venmo">VENMO</div>
     <div class="pay-btn" data-pay="paypal">PAYPAL</div>
+    <div class="pay-btn" data-pay="paylah" style="display:none">PAYLAH</div>
+    <div class="pay-btn" data-pay="paynow" style="display:none">PAYNOW</div>
   </div>
 
   <div class="type-row" id="typeRow">
@@ -705,9 +722,11 @@
   <div class="log-btn" id="logBtn">LOG SALE</div>
 
   <div class="summary" id="summary">
-    <div class="sum-card"><div class="sum-label">Cash</div><div class="sum-value" id="sumCash">$0.00</div></div>
-    <div class="sum-card"><div class="sum-label">Venmo</div><div class="sum-value" id="sumVenmo">$0.00</div></div>
-    <div class="sum-card"><div class="sum-label">PayPal</div><div class="sum-value" id="sumPaypal">$0.00</div></div>
+    <div class="sum-card" data-pay="cash"><div class="sum-label">Cash</div><div class="sum-value" id="sumCash">$0.00</div></div>
+    <div class="sum-card" data-pay="venmo"><div class="sum-label">Venmo</div><div class="sum-value" id="sumVenmo">$0.00</div></div>
+    <div class="sum-card" data-pay="paypal"><div class="sum-label">PayPal</div><div class="sum-value" id="sumPaypal">$0.00</div></div>
+    <div class="sum-card" data-pay="paylah" style="display:none"><div class="sum-label">PayLah</div><div class="sum-value" id="sumPaylah">$0.00</div></div>
+    <div class="sum-card" data-pay="paynow" style="display:none"><div class="sum-label">PayNow</div><div class="sum-value" id="sumPaynow">$0.00</div></div>
   </div>
 
   <div class="history-section">
@@ -730,6 +749,8 @@
         <div class="modal-pay-btn" data-pay="cash">CASH</div>
         <div class="modal-pay-btn" data-pay="venmo">VENMO</div>
         <div class="modal-pay-btn" data-pay="paypal">PAYPAL</div>
+        <div class="modal-pay-btn" data-pay="paylah" style="display:none">PAYLAH</div>
+        <div class="modal-pay-btn" data-pay="paynow" style="display:none">PAYNOW</div>
       </div>
     </div>
     <div class="modal-field">
@@ -767,6 +788,14 @@
   let sales = []; // {id, amount, pay, time, date, notes, photoUrl, type, isTrade, synced}
   let pendingDeletes = []; // {id, date}
   let webhookUrl = '';
+  const PAY_METHODS_KEY = 'tcg_pay_methods_v1';
+  const OPTIONAL_PAY_METHODS = [
+    {key:'venmo', label:'VENMO'},
+    {key:'paypal', label:'PAYPAL'},
+    {key:'paylah', label:'PAYLAH'},
+    {key:'paynow', label:'PAYNOW'}
+  ];
+  let enabledPayMethods = new Set(JSON.parse(localStorage.getItem(PAY_METHODS_KEY) || '["cash","venmo","paypal"]'));
   let syncing = false;
   let sheetReachable = null; // null = not checked yet, true/false after pull
   let pendingPhoto = null; // base64 data URL attached to the next logged sale
@@ -950,23 +979,19 @@
 
   function renderSummaryAndTotal(){
     const today = getMountainParts().date;
-    let total = 0, cash = 0, venmo = 0, paypal = 0, salesTotal = 0, buysTotal = 0;
+    let total = 0, salesTotal = 0, buysTotal = 0;
+    const byMethod = {cash:0, venmo:0, paypal:0, paylah:0, paynow:0};
     sales.filter(s=>s.date===today).forEach(s=>{
-      if(s.type === 'buy') {
-        buysTotal += s.amount;
-        total -= s.amount;
-      } else {
-        salesTotal += s.amount;
-        total += s.amount;
-      }
-      if(s.pay==='cash') cash += s.amount;
-      if(s.pay==='venmo') venmo += s.amount;
-      if(s.pay==='paypal') paypal += s.amount;
+      if(s.type === 'buy') { buysTotal += s.amount; total -= s.amount; }
+      else { salesTotal += s.amount; total += s.amount; }
+      if(byMethod.hasOwnProperty(s.pay)) byMethod[s.pay] += s.amount;
     });
     runningTotal.textContent = fmt(total);
-    sumCash.textContent = fmt(cash);
-    sumVenmo.textContent = fmt(venmo);
-    sumPaypal.textContent = fmt(paypal);
+    document.getElementById('sumCash').textContent = fmt(byMethod.cash);
+    document.getElementById('sumVenmo').textContent = fmt(byMethod.venmo);
+    document.getElementById('sumPaypal').textContent = fmt(byMethod.paypal);
+    document.getElementById('sumPaylah').textContent = fmt(byMethod.paylah);
+    document.getElementById('sumPaynow').textContent = fmt(byMethod.paynow);
     breakdownSales.textContent = fmt(salesTotal);
     breakdownBuys.textContent = fmt(buysTotal);
     saleCount.textContent = sales.filter(s=>s.date===today).length;
@@ -1385,9 +1410,46 @@
     attemptSync();
   });
 
+  // ---- Payment method visibility ----
+  function applyPayMethodVisibility(){
+    OPTIONAL_PAY_METHODS.forEach(({key}) => {
+      const show = enabledPayMethods.has(key);
+      document.querySelectorAll(`[data-pay="${key}"]`).forEach(el => {
+        el.style.display = show ? '' : 'none';
+      });
+    });
+    if(selectedPay !== 'cash' && !enabledPayMethods.has(selectedPay)){
+      selectedPay = 'cash';
+      document.querySelectorAll('.pay-btn').forEach(b => b.classList.toggle('active', b.dataset.pay === 'cash'));
+    }
+  }
+
+  function renderPayMethodToggles(){
+    const container = document.getElementById('pmToggles');
+    container.innerHTML = OPTIONAL_PAY_METHODS.map(({key, label}) => `
+      <div class="pm-toggle-row">
+        <span class="pm-toggle-label">${label}</span>
+        <label class="pm-toggle">
+          <input type="checkbox" data-pmkey="${key}" ${enabledPayMethods.has(key) ? 'checked' : ''}>
+          <span class="pm-slider"></span>
+        </label>
+      </div>`).join('');
+    container.querySelectorAll('input[data-pmkey]').forEach(cb => {
+      cb.addEventListener('change', function(){
+        if(this.checked) enabledPayMethods.add(this.dataset.pmkey);
+        else enabledPayMethods.delete(this.dataset.pmkey);
+        localStorage.setItem(PAY_METHODS_KEY, JSON.stringify([...enabledPayMethods]));
+        applyPayMethodVisibility();
+      });
+    });
+  }
+
+  applyPayMethodVisibility();
+
   // ---- Settings / webhook ----
   gearBtn.addEventListener('click', function(){
     document.getElementById('smWebhookUrl').value = webhookUrl;
+    renderPayMethodToggles();
     document.getElementById('settingsModal').classList.remove('hidden');
   });
   document.getElementById('smClose').addEventListener('click', function(){
