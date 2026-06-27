@@ -1289,7 +1289,9 @@
       return;
     }
 
-    if(k === 'clear'){
+    if(k === 'backspace'){
+      backspaceEntry();
+    } else if(k === 'clear'){
       resetEntry();
     } else if(inputMode === 'discount'){
       const digit = parseInt(k,10);
