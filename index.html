@@ -1111,7 +1111,7 @@
       sub = 'Tap LOG SALE to confirm';
     }
     displaySub.textContent = sub;
-    logBtn.disabled = effective === 0;
+    logBtn.disabled = effective === 0 && !isTrade;
 
     document.querySelectorAll('.key.op[data-key="discount"]').forEach(function(el){
       el.classList.toggle('active', inputMode === 'discount');
@@ -1325,7 +1325,7 @@
 
   logBtn.addEventListener('click', function(){
     const finalCents = getEffectiveCents();
-    if(finalCents === 0) return;
+    if(finalCents === 0 && !isTrade) return;
     const mp = getMountainParts();
     let noteText = notesInput.value.trim();
     const pct = getActiveDiscountPct();
