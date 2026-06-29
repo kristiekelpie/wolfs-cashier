@@ -1134,7 +1134,7 @@
     sales.filter(s=>s.date===today).forEach(s=>{
       if(s.type === 'buy') { buysTotal += s.amount; total -= s.amount; }
       else { salesTotal += s.amount; total += s.amount; }
-      if(byMethod.hasOwnProperty(s.pay)) byMethod[s.pay] += s.amount;
+      if(byMethod.hasOwnProperty(s.pay)) byMethod[s.pay] += (s.type === 'buy' ? -s.amount : s.amount);
     });
     runningTotal.textContent = fmt(total);
     document.getElementById('sumCash').textContent = fmt(byMethod.cash);
@@ -1629,7 +1629,7 @@
     const todaySales = sales.filter(function(s){ return s.date === today; });
     const salesOnly = todaySales.filter(function(s){ return s.type !== 'buy'; });
     const buysOnly  = todaySales.filter(function(s){ return s.type === 'buy'; });
-    const totalCents = todaySales.reduce(function(a,s){ return a + s.amount; }, 0);
+    const totalCents = salesCents - buysCents;
     const salesCents = salesOnly.reduce(function(a,s){ return a + s.amount; }, 0);
     const buysCents  = buysOnly.reduce(function(a,s){ return a + s.amount; }, 0);
     function fmt(c){ return '$' + (c/100).toFixed(2); }
