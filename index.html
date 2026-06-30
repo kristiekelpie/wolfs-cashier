@@ -2268,7 +2268,8 @@
           currency: '€',
           headline: cm.avg,
           sub: [['Low',cm.low,'low'],['Trend',cm.trend,'mid'],['30d',cm.avg30,'high']],
-          useBtn: false
+          useBtn: true,
+          market: cm.avg
         }));
       }
       if(hasF){
@@ -2277,7 +2278,8 @@
           currency: '€',
           headline: cm['avg-holo'],
           sub: [['Low',cm['low-holo'],'low'],['Trend',cm['trend-holo'],'mid'],['30d',cm['avg30-holo'],'high']],
-          useBtn: false
+          useBtn: true,
+          market: cm['avg-holo']
         }));
       }
       if(cards.length){
