@@ -665,16 +665,19 @@
   .price-high{ color:#c49a6a; font-weight:600; }
   .lookup-source{ width:100%; margin-top:14px; }
   .lookup-source:first-child{ margin-top:0; }
-  .lookup-ebay-link{
+  .lookup-ext-links{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    max-width:480px; margin:0 auto 4px;
+  }
+  .lookup-ext-link{
     display:inline-flex; align-items:center; justify-content:center; gap:6px;
-    align-self:center; padding:7px 14px; border-radius:8px;
+    padding:7px 14px; border-radius:8px;
     border:1px solid var(--line); background:var(--panel-raised);
     color:var(--text-dim); font-size:11px; font-weight:600;
     letter-spacing:0.06em; text-transform:uppercase; text-decoration:none;
-    max-width:480px; margin:0 auto 4px; width:auto;
   }
-  .lookup-ebay-link:hover{ color:var(--text); border-color:var(--copper); }
-  .lookup-ebay-link:active{ opacity:0.7; }
+  .lookup-ext-link:hover{ color:var(--text); border-color:var(--copper); }
+  .lookup-ext-link:active{ opacity:0.7; }
   .lookup-source-header{
     display:flex; justify-content:space-between; align-items:baseline;
     width:100%; max-width:480px; margin:0 auto 8px; padding:0 4px;
@@ -2204,7 +2207,7 @@
   });
 
   // ---- Card Lookup ----
-  const CARD_CACHE_KEY = 'tcgdex_card_cache';
+  const CARD_CACHE_KEY = 'tcgdex_card_cache_v2';
   const RECENT_KEY = 'tcgdex_recent';
   const CACHE_TTL = 24 * 60 * 60 * 1000;
   const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
@@ -2267,11 +2270,15 @@
 
     let html = '';
 
-    // eBay sold-listings link (always shown when expanded)
-    const ebayQuery = encodeURIComponent([cardName, setName, localId].filter(Boolean).join(' '));
-    if(ebayQuery){
-      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+ebayQuery+'&_sacat=183454&LH_Sold=1&LH_Complete=1';
-      html += '<a class="lookup-ebay-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">View eBay sold listings ↗</a>';
+    // External price links (always shown when expanded)
+    const query = encodeURIComponent([cardName, setName, localId].filter(Boolean).join(' '));
+    if(query){
+      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+query+'&_sacat=183454&LH_Sold=1&LH_Complete=1';
+      const tcgpUrl = 'https://www.tcgplayer.com/search/all/product?q='+query;
+      html += '<div class="lookup-ext-links">';
+      html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">View on TCGplayer ↗</a>';
+      html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
+      html += '</div>';
     }
 
     // TCGPlayer · USD
@@ -2360,9 +2367,59 @@
     const res = await fetch(TCGDEX_BASE+'/cards/'+encodeURIComponent(id));
     if(!res.ok) throw new Error('fetch failed');
     const card = await res.json();
+
+    // Fallback: if TCGdex has no TCGplayer prices, try pokemontcg.io
+    if(card && (!card.pricing || !card.pricing.tcgplayer)){
+      const ptcg = await fetchPokemonTcgFallback(card.name, card.set && card.set.name, card.localId);
+      if(ptcg){
+        if(!card.pricing) card.pricing = {};
+        card.pricing.tcgplayer = ptcg;
+      }
+    }
+
     cache[id] = { card, fetchedAt: Date.now() };
     setCardCache(cache);
     return card;
+  }
+
+  async function fetchPokemonTcgFallback(name, setName, number){
+    if(!name) return null;
+    try {
+      const parts = ['name:"'+name.replace(/"/g,'')+'"'];
+      if(number) parts.push('number:"'+number+'"');
+      const url = 'https://api.pokemontcg.io/v2/cards?q='+encodeURIComponent(parts.join(' '))+'&pageSize=20';
+      const res = await fetch(url);
+      if(!res.ok) return null;
+      const json = await res.json();
+      if(!json.data || !json.data.length) return null;
+      let card = json.data[0];
+      if(setName){
+        const exact = json.data.find(function(c){ return c.set && c.set.name && c.set.name.toLowerCase()===setName.toLowerCase(); });
+        if(exact) card = exact;
+      }
+      const tp = card.tcgplayer;
+      if(!tp || !tp.prices) return null;
+      const keyMap = {
+        'normal':'normal', 'holofoil':'holofoil', 'reverseHolofoil':'reverse-holofoil',
+        '1stEdition':'1st-edition', '1stEditionHolofoil':'1st-edition-holofoil',
+        'unlimited':'unlimited', 'unlimitedHolofoil':'unlimited-holofoil'
+      };
+      const out = { unit:'USD' };
+      if(tp.updatedAt) out.updated = tp.updatedAt;
+      for(const key in tp.prices){
+        const p = tp.prices[key];
+        if(!p) continue;
+        const tgkey = keyMap[key] || key;
+        out[tgkey] = {
+          lowPrice: p.low!=null?p.low:null,
+          midPrice: p.mid!=null?p.mid:null,
+          highPrice: p.high!=null?p.high:null,
+          marketPrice: p.market!=null?p.market:null,
+          directLowPrice: p.directLow!=null?p.directLow:null
+        };
+      }
+      return Object.keys(out).filter(function(k){ return out[k] && typeof out[k]==='object'; }).length ? out : null;
+    } catch(e){ return null; }
   }
 
   function buildResultRow(item, isExpanded){
@@ -2395,7 +2452,7 @@
     }).join('');
     lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
       row.addEventListener('click', function(e){
-        if(e.target.closest('.lookup-action-btn,.lookup-ebay-link')) return;
+        if(e.target.closest('.lookup-action-btn,.lookup-ext-link')) return;
         const cid = this.dataset.cardId;
         toggleExpand(cid, items);
       });
@@ -2443,7 +2500,7 @@
     }).join('');
     lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
       row.addEventListener('click', function(e){
-        if(e.target.closest('.lookup-action-btn,.lookup-ebay-link')) return;
+        if(e.target.closest('.lookup-action-btn,.lookup-ext-link')) return;
         const cid = this.dataset.cardId;
         toggleExpand(cid, items);
       });
