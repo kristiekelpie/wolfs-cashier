@@ -650,8 +650,17 @@
   }
   .lookup-variant-name{ font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .lookup-market-price{ font-size:22px; font-weight:700; color:var(--green); font-family:'Courier New',monospace; }
-  .lookup-low-price{ font-size:11px; color:var(--text-dim); text-align:center; }
-  .lookup-low-price span{ color:var(--text); font-weight:600; }
+  .lookup-sub-prices{ font-size:11px; color:var(--text-dim); text-align:center; }
+  .price-low{ color:#6db8b8; font-weight:600; }
+  .price-mid{ color:var(--text); font-weight:600; }
+  .price-high{ color:#c49a6a; font-weight:600; }
+  .lookup-cardmarket{ width:100%; margin-top:10px; border-top:1px solid var(--line); padding-top:10px; }
+  .lookup-cm-header{ font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); text-align:center; margin-bottom:8px; }
+  .lookup-cm-table{ display:grid; grid-template-columns:auto 1fr 1fr; gap:4px 10px; font-size:12px; align-items:center; width:100%; max-width:260px; margin:0 auto; }
+  .lookup-cm-colhead{ font-size:10px; color:var(--text-dim); text-align:right; text-transform:uppercase; letter-spacing:0.05em; }
+  .lookup-cm-label{ font-size:11px; color:var(--text-dim); }
+  .lookup-cm-val{ font-weight:600; font-family:'Courier New',monospace; text-align:right; color:var(--text); }
+  .lookup-cm-val.cm-foil{ color:#c49a6a; }
   .lookup-use-btn{
     margin-top:6px; padding:7px 18px; border-radius:8px; border:none; cursor:pointer;
     background:var(--copper); color:#fff; font-size:13px; font-weight:700; letter-spacing:0.06em;
@@ -2192,34 +2201,79 @@
   function fmtPrice(v){ return v!=null ? '$'+Number(v).toFixed(2) : '—'; }
 
   function renderVariants(pricing, cardId, cardName, setName, localId){
-    if(!pricing || !pricing.tcgplayer){
-      return '<div class="lookup-no-price">No US price data</div>';
-    }
-    const tp = pricing.tcgplayer;
-    // TCGdex puts variant objects directly on tp; metadata keys are strings, variants are objects
-    const variantNames = Object.keys(tp).filter(function(k){ return tp[k] && typeof tp[k]==='object'; });
-    if(!variantNames.length) return '<div class="lookup-no-price">No US price data</div>';
-    const updatedAt = tp.updated ? new Date(tp.updated).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : null;
+    let html = '';
+    const fmtUsd = function(v){ return v!=null ? '$'+v.toFixed(2) : '—'; };
+    const fmtEur = function(v){ return v!=null ? '€'+v.toFixed(2) : '—'; };
 
-    let html = '<div class="lookup-variants">';
-    variantNames.forEach(function(vk){
-      const vp = tp[vk];
-      const market = vp.marketPrice != null ? vp.marketPrice : null;
-      const low = vp.lowPrice != null ? vp.lowPrice : null;
-      const mid = vp.midPrice != null ? vp.midPrice : null;
-      const high = vp.highPrice != null ? vp.highPrice : null;
-      const label = vk.replace(/-/g,' ').replace(/\b\w/g,function(c){ return c.toUpperCase(); });
-      html += '<div class="lookup-variant-card">';
-      html += '<div class="lookup-variant-name">'+label+'</div>';
-      html += '<div class="lookup-market-price">'+(market!=null?'$'+market.toFixed(2):'—')+'</div>';
-      html += '<div class="lookup-low-price">Low <span>'+(low!=null?'$'+low.toFixed(2):'—')+'</span></div>';
-      const useMarket = market != null ? market : 0;
-      html += '<button class="lookup-use-btn" data-market="'+useMarket+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id="'+encodeURIComponent(localId)+'">Use</button>';
-      html += '</div>';
-    });
-    html += '</div>';
-    if(updatedAt) html += '<div class="lookup-updated">Prices updated '+updatedAt+'</div>';
-    return html;
+    // TCGPlayer section
+    const tp = pricing && pricing.tcgplayer;
+    if(tp){
+      const variantNames = Object.keys(tp).filter(function(k){ return tp[k] && typeof tp[k]==='object'; });
+      if(variantNames.length){
+        const tpUpdated = tp.updated ? new Date(tp.updated).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : null;
+        html += '<div class="lookup-variants">';
+        variantNames.forEach(function(vk){
+          const vp = tp[vk];
+          const market = vp.marketPrice != null ? vp.marketPrice : null;
+          const low    = vp.lowPrice    != null ? vp.lowPrice    : null;
+          const mid    = vp.midPrice    != null ? vp.midPrice    : null;
+          const high   = vp.highPrice   != null ? vp.highPrice   : null;
+          const label  = vk.replace(/-/g,' ').replace(/\b\w/g,function(c){ return c.toUpperCase(); });
+          const useMarket = market != null ? market : 0;
+          html += '<div class="lookup-variant-card">';
+          html += '<div class="lookup-variant-name">'+label+'</div>';
+          html += '<div class="lookup-market-price">'+fmtUsd(market)+'</div>';
+          html += '<div class="lookup-sub-prices">';
+          html += 'Low <span class="price-low">'+fmtUsd(low)+'</span>';
+          html += ' · Mid <span class="price-mid">'+fmtUsd(mid)+'</span>';
+          html += ' · High <span class="price-high">'+fmtUsd(high)+'</span>';
+          html += '</div>';
+          html += '<button class="lookup-use-btn" data-market="'+useMarket+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id="'+encodeURIComponent(localId)+'">Use</button>';
+          html += '</div>';
+        });
+        html += '</div>';
+        if(tpUpdated) html += '<div class="lookup-updated">TCGPlayer updated '+tpUpdated+'</div>';
+      } else {
+        html += '<div class="lookup-no-price">No TCGPlayer data</div>';
+      }
+    } else {
+      html += '<div class="lookup-no-price">No TCGPlayer data</div>';
+    }
+
+    // Cardmarket section
+    const cm = pricing && pricing.cardmarket;
+    if(cm){
+      const cmUpdated = cm.updated ? new Date(cm.updated).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : null;
+      const hasNF = cm.avg!=null || cm.low!=null || cm.trend!=null;
+      const hasF  = cm['avg-holo']!=null || cm['low-holo']!=null || cm['trend-holo']!=null;
+      if(hasNF || hasF){
+        html += '<div class="lookup-cardmarket">';
+        html += '<div class="lookup-cm-header">Cardmarket (EUR)</div>';
+        html += '<div class="lookup-cm-table">';
+        // column headers
+        html += '<div></div>';
+        html += '<div class="lookup-cm-colhead">'+(hasNF?'Non-foil':'')+'</div>';
+        html += '<div class="lookup-cm-colhead cm-foil">'+(hasF?'Foil':'')+'</div>';
+        // rows
+        var cmRows = [
+          ['Avg',    cm.avg,         cm['avg-holo']],
+          ['Low',    cm.low,         cm['low-holo']],
+          ['Trend',  cm.trend,       cm['trend-holo']],
+          ['30d avg',cm.avg30,       cm['avg30-holo']],
+        ];
+        cmRows.forEach(function(row){
+          if(row[1]==null && row[2]==null) return;
+          html += '<div class="lookup-cm-label">'+row[0]+'</div>';
+          html += '<div class="lookup-cm-val">'+fmtEur(row[1])+'</div>';
+          html += '<div class="lookup-cm-val cm-foil">'+fmtEur(row[2])+'</div>';
+        });
+        html += '</div>';
+        if(cmUpdated) html += '<div class="lookup-updated">Cardmarket updated '+cmUpdated+'</div>';
+        html += '</div>';
+      }
+    }
+
+    return html || '<div class="lookup-no-price">No price data available</div>';
   }
 
   function handleUse(btn){
