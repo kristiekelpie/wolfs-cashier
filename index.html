@@ -617,7 +617,7 @@
   .lookup-search{
     width:100%; box-sizing:border-box; padding:10px 14px; border-radius:10px;
     border:1px solid var(--line); background:var(--panel-raised); color:var(--text);
-    font-size:16px; outline:none; margin-bottom:16px;
+    font-size:16px; outline:none; margin-bottom:8px;
   }
   .lookup-search:focus{ border-color:var(--copper); }
   .lookup-result{
@@ -667,18 +667,26 @@
   .lookup-source{ width:100%; margin-top:14px; }
   .lookup-source:first-child{ margin-top:0; }
   .lookup-ext-links{
-    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
-    max-width:480px; margin:0 auto 4px;
+    display:flex; flex-direction:column; gap:6px; width:100%; margin-top:8px;
   }
   .lookup-ext-link{
-    display:inline-flex; align-items:center; justify-content:center; gap:6px;
-    padding:7px 14px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:6px 8px; border-radius:8px;
     border:1px solid var(--line); background:var(--panel-raised);
-    color:var(--text-dim); font-size:11px; font-weight:600;
+    color:var(--text-dim); font-size:10px; font-weight:600;
     letter-spacing:0.06em; text-transform:uppercase; text-decoration:none;
+    width:100%; box-sizing:border-box;
   }
   .lookup-ext-link:hover{ color:var(--text); border-color:var(--copper); }
   .lookup-ext-link:active{ opacity:0.7; }
+  .lookup-search-history{ display:flex; flex-wrap:wrap; gap:6px; padding:0 0 10px; }
+  .lookup-search-history:empty{ display:none; }
+  .lookup-search-chip{
+    padding:4px 10px; border-radius:12px;
+    background:var(--panel-raised); border:1px solid var(--line);
+    color:var(--text-dim); font-size:11px; cursor:pointer; white-space:nowrap;
+  }
+  .lookup-search-chip:active{ opacity:0.7; }
   .lookup-source-header{
     display:flex; justify-content:space-between; align-items:baseline;
     width:100%; max-width:480px; margin:0 auto 8px; padding:0 4px;
@@ -1066,6 +1074,7 @@
       <input type="search" class="lookup-search" id="lookupSearch" placeholder="Search card name…" autocomplete="off" autocorrect="off" spellcheck="false">
       <div class="lookup-spinner"></div>
     </div>
+    <div id="lookupSearchHistory" class="lookup-search-history"></div>
     <div id="lookupResults"></div>
   </div>
 </div>
@@ -2103,6 +2112,7 @@
     applyQrClasses(page);
     if(page === LOOKUP_PAGE){
       expandedCardId = null;
+      renderSearchHistory();
       showRecents();
     }
   }
@@ -2210,6 +2220,7 @@
   // ---- Card Lookup ----
   const CARD_CACHE_KEY = 'tcgdex_card_cache_v2';
   const RECENT_KEY = 'tcgdex_recent';
+  const SEARCH_HISTORY_KEY = 'lookup_search_history';
   const CACHE_TTL = 24 * 60 * 60 * 1000;
   const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
 
@@ -2222,6 +2233,13 @@
     if(r.length>20) r=r.slice(0,20);
     try{ localStorage.setItem(RECENT_KEY,JSON.stringify(r)); }catch(e){}
   }
+  function getSearchHistory(){ try{ return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY)||'[]'); }catch(e){ return []; } }
+  function pushSearchHistory(q){
+    let h = getSearchHistory().filter(x=>x!==q);
+    h.unshift(q);
+    if(h.length>8) h=h.slice(0,8);
+    try{ localStorage.setItem(SEARCH_HISTORY_KEY,JSON.stringify(h)); }catch(e){}
+  }
 
   let lookupAbort = null;
   let lookupDebounce = null;
@@ -2230,6 +2248,23 @@
   const lookupSearch = document.getElementById('lookupSearch');
   const lookupResults = document.getElementById('lookupResults');
   const lookupSearchWrap = document.getElementById('lookupSearchWrap');
+  const lookupSearchHistory = document.getElementById('lookupSearchHistory');
+
+  function renderSearchHistory(){
+    const h = getSearchHistory();
+    if(!h.length){ lookupSearchHistory.innerHTML=''; return; }
+    lookupSearchHistory.innerHTML = h.map(function(q){
+      return '<span class="lookup-search-chip" data-q="'+encodeURIComponent(q)+'">'+q+'</span>';
+    }).join('');
+    lookupSearchHistory.querySelectorAll('.lookup-search-chip').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        const q = decodeURIComponent(this.dataset.q);
+        lookupSearch.value = q;
+        lookupSearchHistory.innerHTML = '';
+        doSearch(q);
+      });
+    });
+  }
 
   function fmtPrice(v){ return v!=null ? '$'+Number(v).toFixed(2) : '—'; }
 
@@ -2263,24 +2298,13 @@
     function section(name, dateStr, variantsHtml){
       let h = '<div class="lookup-source">';
       h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span>';
-      h += '<span class="lookup-source-date">'+(dateStr?'Updated '+dateStr:'')+'</span></div>';
+      h += '<span class="lookup-source-date">'+(dateStr?'Up. '+dateStr:'')+'</span></div>';
       h += '<div class="lookup-variants">'+variantsHtml+'</div>';
       h += '</div>';
       return h;
     }
 
     let html = '';
-
-    // External price links (always shown when expanded)
-    const query = encodeURIComponent([cardName, setName, localId].filter(Boolean).join(' '));
-    if(query){
-      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+query+'&_sacat=183454&LH_Sold=1&LH_Complete=1';
-      const tcgpUrl = 'https://www.tcgplayer.com/search/all/product?q='+query;
-      html += '<div class="lookup-ext-links">';
-      html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">View on TCGplayer ↗</a>';
-      html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
-      html += '</div>';
-    }
 
     // TCGPlayer · USD
     const tp = pricing && pricing.tcgplayer;
@@ -2375,6 +2399,7 @@
       if(ptcg){
         if(!card.pricing) card.pricing = {};
         card.pricing.tcgplayer = ptcg;
+        if(ptcg._url) card._tcgplayerUrl = ptcg._url;
       }
     }
 
@@ -2407,6 +2432,7 @@
       };
       const out = { unit:'USD' };
       if(tp.updatedAt) out.updated = tp.updatedAt;
+      if(tp.url) out._url = tp.url;
       for(const key in tp.prices){
         const p = tp.prices[key];
         if(!p) continue;
@@ -2423,8 +2449,73 @@
     } catch(e){ return null; }
   }
 
+  async function fetchPtcgCardDetail(id){
+    const cache = getCardCache();
+    const cacheKey = 'ptcg_'+id;
+    const cached = cache[cacheKey];
+    if(cached && (Date.now()-cached.fetchedAt)<CACHE_TTL) return cached.card;
+    const res = await fetch('https://api.pokemontcg.io/v2/cards/'+encodeURIComponent(id));
+    if(!res.ok) throw new Error('fetch failed');
+    const json = await res.json();
+    const c = json.data;
+    const card = {
+      id: c.id, name: c.name,
+      image: c.images ? c.images.small : '',
+      _imageHigh: c.images ? c.images.large : '',
+      localId: c.number,
+      set: { name: c.set ? c.set.name : '' },
+      _source: 'ptcg',
+      pricing: {}
+    };
+    if(c.tcgplayer && c.tcgplayer.prices){
+      const keyMap = {
+        'normal':'normal','holofoil':'holofoil','reverseHolofoil':'reverse-holofoil',
+        '1stEdition':'1st-edition','1stEditionHolofoil':'1st-edition-holofoil',
+        'unlimited':'unlimited','unlimitedHolofoil':'unlimited-holofoil'
+      };
+      const tp = { unit:'USD' };
+      if(c.tcgplayer.updatedAt) tp.updated = c.tcgplayer.updatedAt;
+      if(c.tcgplayer.url) card._tcgplayerUrl = c.tcgplayer.url;
+      for(const key in c.tcgplayer.prices){
+        const p = c.tcgplayer.prices[key];
+        if(!p) continue;
+        tp[keyMap[key]||key] = {
+          lowPrice:p.low, midPrice:p.mid, highPrice:p.high,
+          marketPrice:p.market, directLowPrice:p.directLow
+        };
+      }
+      if(Object.keys(tp).filter(function(k){ return tp[k]&&typeof tp[k]==='object'; }).length)
+        card.pricing.tcgplayer = tp;
+    }
+    cache[cacheKey] = { card, fetchedAt: Date.now() };
+    setCardCache(cache);
+    return card;
+  }
+
+  async function searchPokemonTcg(query){
+    try{
+      const url = 'https://api.pokemontcg.io/v2/cards?q=name:*'+encodeURIComponent(query)+'*&pageSize=20&orderBy=-set.releaseDate';
+      const res = await fetch(url);
+      if(!res.ok) return [];
+      const json = await res.json();
+      if(!json.data||!json.data.length) return [];
+      return json.data.map(function(c){
+        return {
+          id: c.id, name: c.name,
+          image: c.images ? c.images.small : '',
+          _imageHigh: c.images ? c.images.large : '',
+          localId: c.number,
+          set: { name: c.set ? c.set.name : '' },
+          _source: 'ptcg'
+        };
+      });
+    } catch(e){ return []; }
+  }
+
   function buildResultRow(item, isExpanded){
-    const imgUrl = item.image ? item.image + (isExpanded ? '/high.webp' : '/low.webp') : '';
+    let imgUrl = '';
+    if(item._imageHigh){ imgUrl = isExpanded ? item._imageHigh : item.image; }
+    else if(item.image){ imgUrl = item.image + (isExpanded ? '/high.webp' : '/low.webp'); }
     const setLabel = (item.set&&item.set.name?item.set.name:'')+(item.localId?' · '+item.localId:'');
     const rowClass = 'lookup-result'+(isExpanded?' expanded':'');
     let html = '<div class="'+rowClass+'" data-card-id="'+item.id+'">';
@@ -2433,6 +2524,18 @@
     html += '<div class="lookup-result-text"><div class="lookup-result-name">'+item.name+'</div>';
     if(setLabel) html += '<div class="lookup-result-sub">'+setLabel+'</div>';
     html += '</div>';
+    if(isExpanded){
+      const cName = item.name;
+      const sName = item.set&&item.set.name?item.set.name:'';
+      const lId = item.localId||'';
+      const q = encodeURIComponent([cName,sName,lId].filter(Boolean).join(' '));
+      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+q+'&_sacat=183454&LH_Sold=1&LH_Complete=1';
+      const tcgpUrl = item._tcgplayerUrl || ('https://www.tcgplayer.com/search/all/product?q='+q);
+      html += '<div class="lookup-ext-links">';
+      html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
+      html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
+      html += '</div>';
+    }
     html += '</div>';
     html += '<div class="lookup-result-chevron">›</div>';
     html += '<div class="lookup-detail" id="detail-'+item.id+'">';
@@ -2474,8 +2577,12 @@
     const item = items.find(function(x){ return x.id===cardId; });
     if(!item) return;
     try{
-      const detail = await fetchCardDetail(cardId);
+      const detail = item._source === 'ptcg'
+        ? await fetchPtcgCardDetail(cardId)
+        : await fetchCardDetail(cardId);
       item.image = detail.image || item.image;
+      item._imageHigh = detail._imageHigh || item._imageHigh;
+      item._tcgplayerUrl = detail._tcgplayerUrl || item._tcgplayerUrl;
       item.pricing = detail.pricing;
       item.set = detail.set || item.set;
       item.localId = detail.localId || item.localId;
@@ -2517,14 +2624,21 @@
     if(lookupAbort) lookupAbort.abort();
     lookupAbort = new AbortController();
     lookupSearchWrap.classList.add('loading');
+    lookupSearchHistory.innerHTML = '';
     lookupResults.innerHTML = '<div class="lookup-loading">Searching…</div>';
     try{
       const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=20';
       const res = await fetch(url, {signal: lookupAbort.signal});
       if(!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
+      let items = Array.isArray(data) ? data : [];
+      if(!items.length){
+        lookupResults.innerHTML = '<div class="lookup-loading">Searching pokemontcg.io…</div>';
+        items = await searchPokemonTcg(query);
+      }
       lookupSearchWrap.classList.remove('loading');
-      currentItems = Array.isArray(data) ? data : [];
+      if(items.length) pushSearchHistory(query);
+      currentItems = items;
       expandedCardId = null;
       renderResults(currentItems);
     } catch(e){
@@ -2552,11 +2666,17 @@
   lookupSearch.addEventListener('input', function(){
     clearTimeout(lookupDebounce);
     const q = this.value.trim();
-    if(!q){ expandedCardId=null; showRecents(); return; }
+    if(!q){ expandedCardId=null; renderSearchHistory(); showRecents(); return; }
     lookupDebounce = setTimeout(function(){ doSearch(q); }, 300);
   });
 
-  // Show recents when lookup page is opened
+  // Show recents + search history when lookup page is opened
+  function initLookupPage(){
+    if(!lookupSearch.value.trim()){
+      renderSearchHistory();
+      showRecents();
+    }
+  }
 })();
 </script>
 </body>
