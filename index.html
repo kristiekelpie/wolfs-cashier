@@ -663,12 +663,20 @@
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
   .lookup-source-date{ font-size:10px; text-transform:none; letter-spacing:0; }
-  .lookup-use-btn{
-    margin-top:6px; padding:7px 18px; border-radius:8px; border:none; cursor:pointer;
-    background:var(--copper); color:#fff; font-size:13px; font-weight:700; letter-spacing:0.06em;
-    text-transform:uppercase; user-select:none;
+  .lookup-action-row{ display:flex; gap:6px; margin-top:6px; width:100%; justify-content:center; }
+  .lookup-action-btn{
+    padding:7px 14px; border-radius:8px; cursor:pointer;
+    font-size:12px; font-weight:700; letter-spacing:0.06em;
+    text-transform:uppercase; user-select:none; flex:1; max-width:90px;
   }
-  .lookup-use-btn:active{ opacity:0.8; }
+  .lookup-action-btn.sell{
+    background:rgba(180,160,210,0.15); border:1px solid rgba(180,160,210,0.6); color:#c4aee8;
+  }
+  .lookup-action-btn.buy{
+    background:#3d4a5c; border:1px solid #5b7a9e; color:#7fa3c8;
+  }
+  .lookup-action-btn:active{ opacity:0.7; }
+  .lookup-action-buy-pct{ font-size:9px; opacity:0.7; font-weight:500; letter-spacing:0.04em; }
   .lookup-updated{ font-size:10px; color:var(--text-dim); text-align:center; margin-top:4px; }
   .lookup-no-price{ font-size:12px; color:var(--text-dim); margin:4px 0; }
   .lookup-empty{ text-align:center; color:var(--text-dim); font-size:14px; padding:32px 0; }
@@ -2219,7 +2227,11 @@
       h += '</div>';
       if(opts.useBtn){
         const useMarket = opts.market != null ? opts.market : 0;
-        h += '<button class="lookup-use-btn" data-market="'+useMarket+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id="'+encodeURIComponent(localId)+'">Use</button>';
+        const dataAttrs = ' data-market="'+useMarket+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id="'+encodeURIComponent(localId)+'"';
+        h += '<div class="lookup-action-row">';
+        h += '<button class="lookup-action-btn sell" data-mode="sell"'+dataAttrs+'>Sell</button>';
+        h += '<button class="lookup-action-btn buy" data-mode="buy"'+dataAttrs+'>Buy <span class="lookup-action-buy-pct">'+buyPercentage+'%</span></button>';
+        h += '</div>';
       }
       h += '</div>';
       return h;
@@ -2291,17 +2303,21 @@
   }
 
   function handleUse(btn){
+    const mode = btn.dataset.mode || 'sell';
     const market = parseFloat(btn.dataset.market)||0;
     const cardId = btn.dataset.cardId;
     const cardName = decodeURIComponent(btn.dataset.cardName);
     const setName = decodeURIComponent(btn.dataset.setName);
     const localId = decodeURIComponent(btn.dataset.localId);
-    let finalPrice;
-    if(selectedType==='buy'){
-      finalPrice = Math.round(market * buyPercentage / 100);
-    } else {
-      finalPrice = Math.round(market);
-    }
+    const finalPrice = mode==='buy' ? Math.round(market * buyPercentage / 100) : Math.round(market);
+    selectedType = mode === 'buy' ? 'buy' : 'sale';
+    document.querySelectorAll('.type-btn').forEach(function(b){
+      b.classList.remove('active','buy');
+      if(b.dataset.type === selectedType){
+        b.classList.add('active');
+        if(selectedType==='buy') b.classList.add('buy');
+      }
+    });
     setEntryDollars(finalPrice);
     const identifier = cardName+' — '+setName+' '+localId;
     if(!notesInput.value.trim()) notesInput.value = identifier;
@@ -2354,12 +2370,13 @@
     }).join('');
     lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
       row.addEventListener('click', function(e){
-        if(e.target.classList.contains('lookup-use-btn') || e.target.closest('.lookup-use-btn')) return;
+        if(e.target.closest('.lookup-action-btn')) return;
         const cid = this.dataset.cardId;
         toggleExpand(cid, items);
       });
-      const useBtn = row.querySelector('.lookup-use-btn');
-      if(useBtn) useBtn.addEventListener('click', function(e){ e.stopPropagation(); handleUse(this); });
+      row.querySelectorAll('.lookup-action-btn').forEach(function(btn){
+        btn.addEventListener('click', function(e){ e.stopPropagation(); handleUse(this); });
+      });
     });
   }
 
@@ -2401,12 +2418,13 @@
     }).join('');
     lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
       row.addEventListener('click', function(e){
-        if(e.target.classList.contains('lookup-use-btn') || e.target.closest('.lookup-use-btn')) return;
+        if(e.target.closest('.lookup-action-btn')) return;
         const cid = this.dataset.cardId;
         toggleExpand(cid, items);
       });
-      const useBtn = row.querySelector('.lookup-use-btn');
-      if(useBtn) useBtn.addEventListener('click', function(e){ e.stopPropagation(); handleUse(this); });
+      row.querySelectorAll('.lookup-action-btn').forEach(function(btn){
+        btn.addEventListener('click', function(e){ e.stopPropagation(); handleUse(this); });
+      });
     });
   }
 
