@@ -626,23 +626,31 @@
     cursor:pointer; box-sizing:border-box; border:1px solid var(--line); min-height:64px;
   }
   .lookup-result:active{ background:var(--panel-raised); }
-  .lookup-result.expanded{ border-color:var(--copper); }
+  .lookup-result.expanded{
+    display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:start;
+    border-color:var(--copper);
+    grid-template-areas:
+      "thumb text chevron"
+      "thumb detail detail";
+  }
   .lookup-thumb{
     width:40px; height:40px; border-radius:6px; object-fit:contain; flex-shrink:0;
-    background:var(--panel-raised);
+    background:var(--panel-raised); transition:width 0.2s, height 0.2s;
+  }
+  .lookup-result.expanded .lookup-thumb{
+    grid-area:thumb; width:140px; height:auto; align-self:start; max-width:35vw;
   }
   .lookup-result-text{ flex:1; min-width:0; }
+  .lookup-result.expanded .lookup-result-text{ grid-area:text; flex:initial; }
   .lookup-result-name{ font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .lookup-result-sub{ font-size:11px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .lookup-result-chevron{ color:var(--text-dim); font-size:18px; flex-shrink:0; }
+  .lookup-result.expanded .lookup-result-chevron{ grid-area:chevron; }
   .lookup-detail{
-    width:100%; box-sizing:border-box; padding:12px 0 4px;
-    border-top:1px solid var(--line); margin-top:4px; display:none; flex-direction:column; align-items:center; gap:12px;
+    width:100%; box-sizing:border-box; padding:8px 0 4px;
+    display:none; flex-direction:column; align-items:stretch; gap:8px; min-width:0;
   }
-  .lookup-result.expanded .lookup-detail{ display:flex; }
-  .lookup-detail-img{
-    width:120px; height:auto; border-radius:8px; object-fit:contain;
-  }
+  .lookup-result.expanded .lookup-detail{ display:flex; grid-area:detail; }
   .lookup-variants{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; width:100%; }
   .lookup-variant-card{
     background:var(--panel-raised); border:1px solid var(--line); border-radius:10px;
@@ -2340,19 +2348,18 @@
   }
 
   function buildResultRow(item, isExpanded){
-    const thumb = item.image ? item.image+'/low.webp' : '';
+    const imgUrl = item.image ? item.image + (isExpanded ? '/high.webp' : '/low.webp') : '';
     const setLabel = (item.set&&item.set.name?item.set.name:'')+(item.localId?' · '+item.localId:'');
     const rowClass = 'lookup-result'+(isExpanded?' expanded':'');
     let html = '<div class="'+rowClass+'" data-card-id="'+item.id+'">';
-    html += '<img class="lookup-thumb" src="'+thumb+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+    html += '<img class="lookup-thumb" src="'+imgUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
     html += '<div class="lookup-result-text"><div class="lookup-result-name">'+item.name+'</div>';
     if(setLabel) html += '<div class="lookup-result-sub">'+setLabel+'</div>';
     html += '</div>';
-    html += '<div class="lookup-result-chevron">'+(isExpanded?'›':'›')+'</div>';
+    html += '<div class="lookup-result-chevron">›</div>';
     html += '<div class="lookup-detail" id="detail-'+item.id+'">';
     if(isExpanded && item._detailLoaded){
-      const bigImg = item.image ? '<img class="lookup-detail-img" src="'+item.image+'/high.webp" alt="" loading="lazy">' : '';
-      html += bigImg + renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'');
+      html += renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'');
     } else if(isExpanded){
       html += '<div class="lookup-loading">Loading…</div>';
     }
