@@ -2278,20 +2278,20 @@
         cards.push(variantCard({
           label: 'Non-foil',
           currency: '€',
-          headline: cm.avg,
-          sub: [['Low',cm.low,'low'],['Trend',cm.trend,'mid'],['30d',cm.avg30,'high']],
+          headline: cm.trend != null ? cm.trend : cm.avg,
+          sub: [['Low',cm.low,'low'],['Mid',cm.trend,'mid'],['High',cm.avg,'high']],
           useBtn: true,
-          market: cm.avg
+          market: cm.trend != null ? cm.trend : cm.avg
         }));
       }
       if(hasF){
         cards.push(variantCard({
           label: 'Foil',
           currency: '€',
-          headline: cm['avg-holo'],
-          sub: [['Low',cm['low-holo'],'low'],['Trend',cm['trend-holo'],'mid'],['30d',cm['avg30-holo'],'high']],
+          headline: cm['trend-holo'] != null ? cm['trend-holo'] : cm['avg-holo'],
+          sub: [['Low',cm['low-holo'],'low'],['Mid',cm['trend-holo'],'mid'],['High',cm['avg-holo'],'high']],
           useBtn: true,
-          market: cm['avg-holo']
+          market: cm['trend-holo'] != null ? cm['trend-holo'] : cm['avg-holo']
         }));
       }
       if(cards.length){
