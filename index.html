@@ -627,30 +627,31 @@
   }
   .lookup-result:active{ background:var(--panel-raised); }
   .lookup-result.expanded{
-    display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:start;
-    border-color:var(--copper);
-    grid-template-areas:
-      "thumb text chevron"
-      "thumb detail detail";
+    align-items:flex-start; border-color:var(--copper);
+  }
+  .lookup-left{ display:contents; }
+  .lookup-result.expanded .lookup-left{
+    display:flex; flex-direction:column; gap:8px;
+    width:min(140px,35vw); flex-shrink:0; align-self:flex-start;
   }
   .lookup-thumb{
     width:40px; height:40px; border-radius:6px; object-fit:contain; flex-shrink:0;
     background:var(--panel-raised); transition:width 0.2s, height 0.2s;
   }
-  .lookup-result.expanded .lookup-thumb{
-    grid-area:thumb; width:140px; height:auto; align-self:start; max-width:35vw;
-  }
+  .lookup-result.expanded .lookup-thumb{ width:100%; height:auto; }
   .lookup-result-text{ flex:1; min-width:0; }
-  .lookup-result.expanded .lookup-result-text{ grid-area:text; flex:initial; }
+  .lookup-result.expanded .lookup-result-text{ flex:initial; text-align:center; padding:0 4px; }
   .lookup-result-name{ font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lookup-result.expanded .lookup-result-name{ white-space:normal; overflow:visible; text-overflow:clip; line-height:1.25; }
   .lookup-result-sub{ font-size:11px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lookup-result.expanded .lookup-result-sub{ white-space:normal; overflow:visible; text-overflow:clip; line-height:1.3; }
   .lookup-result-chevron{ color:var(--text-dim); font-size:18px; flex-shrink:0; }
-  .lookup-result.expanded .lookup-result-chevron{ grid-area:chevron; }
+  .lookup-result.expanded .lookup-result-chevron{ align-self:flex-start; }
   .lookup-detail{
     width:100%; box-sizing:border-box; padding:8px 0 4px;
     display:none; flex-direction:column; align-items:stretch; gap:8px; min-width:0;
   }
-  .lookup-result.expanded .lookup-detail{ display:flex; grid-area:detail; }
+  .lookup-result.expanded .lookup-detail{ display:flex; flex:1; }
   .lookup-variants{ display:flex; flex-direction:column; gap:8px; width:100%; align-items:stretch; max-width:480px; margin:0 auto; }
   .lookup-variant-card{
     background:var(--panel-raised); border:1px solid var(--line); border-radius:10px;
@@ -2427,9 +2428,11 @@
     const setLabel = (item.set&&item.set.name?item.set.name:'')+(item.localId?' · '+item.localId:'');
     const rowClass = 'lookup-result'+(isExpanded?' expanded':'');
     let html = '<div class="'+rowClass+'" data-card-id="'+item.id+'">';
+    html += '<div class="lookup-left">';
     html += '<img class="lookup-thumb" src="'+imgUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
     html += '<div class="lookup-result-text"><div class="lookup-result-name">'+item.name+'</div>';
     if(setLabel) html += '<div class="lookup-result-sub">'+setLabel+'</div>';
+    html += '</div>';
     html += '</div>';
     html += '<div class="lookup-result-chevron">›</div>';
     html += '<div class="lookup-detail" id="detail-'+item.id+'">';
