@@ -594,6 +594,7 @@
   }
   .page-dots.visible{ opacity:1; }
   .page-dots.dim{ opacity:0.35; }
+  @media (max-width: 600px){ .page-dots{ display:none !important; } }
   .page-dot{
     width:6px; height:6px; border-radius:50%; background:var(--line); transition:background 0.2s, transform 0.2s;
     cursor:pointer; padding:8px; margin:-8px; box-sizing:content-box;
