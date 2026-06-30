@@ -650,7 +650,8 @@
   }
   .lookup-variant-name{ font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .lookup-market-price{ font-size:22px; font-weight:700; color:var(--green); font-family:'Courier New',monospace; }
-  .lookup-sub-prices{ font-size:10px; color:var(--text-dim); text-align:center; line-height:1.5; }
+  .lookup-low-price{ font-size:11px; color:var(--text-dim); text-align:center; }
+  .lookup-low-price span{ color:var(--text); font-weight:600; }
   .lookup-use-btn{
     margin-top:6px; padding:7px 18px; border-radius:8px; border:none; cursor:pointer;
     background:var(--copper); color:#fff; font-size:13px; font-weight:700; letter-spacing:0.06em;
@@ -2198,7 +2199,7 @@
     // TCGdex puts variant objects directly on tp; metadata keys are strings, variants are objects
     const variantNames = Object.keys(tp).filter(function(k){ return tp[k] && typeof tp[k]==='object'; });
     if(!variantNames.length) return '<div class="lookup-no-price">No US price data</div>';
-    const updatedAt = tp.updated ? new Date(tp.updated).toLocaleDateString() : null;
+    const updatedAt = tp.updated ? new Date(tp.updated).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : null;
 
     let html = '<div class="lookup-variants">';
     variantNames.forEach(function(vk){
@@ -2210,14 +2211,14 @@
       const label = vk.replace(/-/g,' ').replace(/\b\w/g,function(c){ return c.toUpperCase(); });
       html += '<div class="lookup-variant-card">';
       html += '<div class="lookup-variant-name">'+label+'</div>';
-      html += '<div class="lookup-market-price">'+(market!=null?'$'+Math.round(market):'—')+'</div>';
-      html += '<div class="lookup-sub-prices">Low '+fmtPrice(low)+' · Mid '+fmtPrice(mid)+' · High '+fmtPrice(high)+'</div>';
+      html += '<div class="lookup-market-price">'+(market!=null?'$'+market.toFixed(2):'—')+'</div>';
+      html += '<div class="lookup-low-price">Low <span>'+(low!=null?'$'+low.toFixed(2):'—')+'</span></div>';
       const useMarket = market != null ? market : 0;
       html += '<button class="lookup-use-btn" data-market="'+useMarket+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id="'+encodeURIComponent(localId)+'">Use</button>';
       html += '</div>';
     });
     html += '</div>';
-    if(updatedAt) html += '<div class="lookup-updated">Updated '+updatedAt+'</div>';
+    if(updatedAt) html += '<div class="lookup-updated">Prices updated '+updatedAt+'</div>';
     return html;
   }
 
