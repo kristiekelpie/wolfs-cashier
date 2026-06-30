@@ -597,9 +597,9 @@
   @media (max-width: 600px){ .page-dots{ display:none !important; } }
   .page-dot{
     width:6px; height:6px; border-radius:50%; background:var(--line); transition:background 0.2s, transform 0.2s;
-    cursor:pointer; padding:8px; margin:-8px; box-sizing:content-box;
+    cursor:pointer; padding:8px; margin:-8px; box-sizing:content-box; background-clip:content-box;
   }
-  .page-dot.active{ background:var(--text); transform:scale(1.3); }
+  .page-dot.active{ background:var(--text); background-clip:content-box; transform:scale(1.3); }
   /* QR settings */
   .qr-slot{ display:flex; flex-direction:column; gap:8px; padding:8px 0; }
   .qr-slot + .qr-slot{ border-top:1px solid var(--line); margin-top:4px; }
