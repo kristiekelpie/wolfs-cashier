@@ -693,18 +693,12 @@
   }
   .lookup-search-chip:active{ opacity:0.7; }
   .lookup-source-header{
-    display:flex; justify-content:space-between; align-items:flex-start;
+    display:flex; flex-direction:column; align-items:flex-start;
     width:100%; max-width:480px; margin:0 auto 8px; padding:0 4px;
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
-  .lookup-updated-date{
-    width:100%; max-width:480px; margin:0 auto 4px; padding:0 4px;
-    font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0;
-  }
-  @media (max-width: 600px){
-    .lookup-updated-date{ font-size:8px; }
-  }
+  .lookup-source-date{ font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0; margin-top:1px; }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
   .lookup-action-btn{
     padding:8px 0; border-radius:8px; cursor:pointer;
@@ -2316,9 +2310,11 @@
       return h;
     }
 
-    function section(name, variantsHtml){
+    function section(name, variantsHtml, dateStr){
       let h = '<div class="lookup-source">';
-      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span></div>';
+      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span>';
+      if(dateStr) h += '<span class="lookup-source-date">'+dateStr+'</span>';
+      h += '</div>';
       h += '<div class="lookup-variants">'+variantsHtml+'</div>';
       h += '</div>';
       return h;
@@ -2344,7 +2340,7 @@
             market: vp.marketPrice
           });
         }).join('');
-        html += section('TCGplayer · USD', cards);
+        html += section('TCGplayer · USD', cards, firstDate);
       }
     }
 
@@ -2377,11 +2373,6 @@
       if(cards.length){
         html += section('Cardmarket · EUR', cards.join(''));
       }
-    }
-
-    // Prepend date if we have one
-    if(firstDate){
-      html = '<div class="lookup-updated-date">'+firstDate+'</div>' + html;
     }
 
     return html || '<div class="lookup-no-price">No price data available</div>';
