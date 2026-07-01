@@ -631,19 +631,27 @@
     background:var(--copper-dim); margin-bottom:8px;
   }
   .lookup-search{
-    width:100%; box-sizing:border-box; padding:10px 40px 10px 14px; border-radius:10px;
-    border:1px solid var(--line); background:var(--panel-raised); color:var(--text);
-    font-size:16px; outline:none; margin-bottom:8px;
+    flex:1; min-width:0; box-sizing:border-box; padding:10px 0 10px 14px;
+    border:none; background:transparent; color:var(--text);
+    font-size:16px; outline:none;
   }
-  .lookup-search:focus{ border-color:var(--copper); }
   .lookup-search-btn{
-    position:absolute; right:8px; top:calc(50% - 4px); transform:translateY(-50%);
-    background:none; border:none; cursor:pointer; color:var(--text-dim);
-    padding:4px; display:flex; align-items:center; line-height:1;
+    flex-shrink:0; background:none; border:none; cursor:pointer; color:var(--text-dim);
+    padding:4px 10px; display:flex; align-items:center; line-height:1;
     transition:color 0.15s;
   }
   .lookup-search-btn:hover{ color:var(--copper); }
   .lookup-search-wrap.loading .lookup-search-btn{ display:none; }
+  .lookup-search-row{ display:flex; align-items:center; border:1px solid var(--line); border-radius:10px; background:var(--panel-raised); margin-bottom:8px; overflow:hidden; }
+  .lookup-search-row:focus-within{ border-color:var(--copper); }
+  .lookup-cam-btn{
+    flex-shrink:0; background:none; border:none; border-left:1px solid var(--line);
+    cursor:pointer; color:var(--text-dim); padding:0 12px; height:100%;
+    display:none; align-items:center; line-height:1; transition:color 0.15s;
+  }
+  .lookup-cam-btn:hover{ color:var(--copper); }
+  .lookup-search-wrap.basketball-mode .lookup-cam-btn{ display:flex; }
+  .lookup-search-wrap.loading .lookup-cam-btn{ display:none; }
   .lookup-result{
     width:100%; display:flex; align-items:center; gap:12px;
     background:var(--panel); border-radius:10px; padding:10px 12px; margin-bottom:8px;
@@ -666,6 +674,8 @@
   .lookup-thumb-wrap{ flex-shrink:0; }
   .lookup-result.expanded .lookup-thumb-wrap{ width:100%; }
   .lookup-thumb-wrap.img-loading::after{ content:'image loading…'; display:block; font-size:9px; color:var(--text-dim); text-align:center; padding:4px 0; letter-spacing:0.04em; }
+  .lookup-thumb-ph{ width:44px; height:60px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:var(--panel); }
+  .lookup-result.expanded .lookup-thumb-ph{ width:100%; height:120px; border-radius:8px; }
   .lookup-result-text{ flex:1; min-width:0; }
   .lookup-result.expanded .lookup-result-text{ flex:initial; text-align:center; padding:0 4px; }
   .lookup-result-name{ font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -757,9 +767,8 @@
   .lookup-recent-header{ width:100%; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); margin-bottom:8px; }
   .lookup-search-wrap{ position:relative; width:100%; }
   .lookup-spinner{
-    position:absolute; right:12px; top:50%; transform:translateY(-50%);
-    width:16px; height:16px; border:2px solid var(--line); border-top-color:var(--copper);
-    border-radius:50%; animation:spin 0.6s linear infinite; display:none;
+    flex-shrink:0; width:16px; height:16px; border:2px solid var(--line); border-top-color:var(--copper);
+    border-radius:50%; animation:spin 0.6s linear infinite; display:none; margin:0 10px;
   }
   .lookup-search-wrap.loading .lookup-spinner{ display:block; }
   .search-btn{
@@ -1113,10 +1122,14 @@
       <button class="lookup-mode-btn" data-mode="basketball">Basketball</button>
     </div>
     <div class="lookup-search-wrap" id="lookupSearchWrap">
-      <input type="search" class="lookup-search" id="lookupSearch" placeholder="Search card name…" autocomplete="off" autocorrect="off" spellcheck="false">
-      <button class="lookup-search-btn" id="lookupSearchBtn" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10.2" y1="10.2" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
-      <div class="lookup-spinner"></div>
+      <div class="lookup-search-row">
+        <input type="search" class="lookup-search" id="lookupSearch" placeholder="Search card name…" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="lookup-search-btn" id="lookupSearchBtn" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10.2" y1="10.2" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        <div class="lookup-spinner"></div>
+        <button class="lookup-cam-btn" id="lookupCamBtn" aria-label="Identify card from photo"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+      </div>
     </div>
+    <input type="file" id="lookupCamInput" accept="image/*" capture="environment" style="display:none">
     <div id="lookupRateLimit" class="lookup-rate-limit" style="display:none">Search rate limit reached, try again in an hour</div>
     <div id="lookupResults"></div>
   </div>
@@ -2272,6 +2285,8 @@
   const LORCAST_TTL = 24 * 60 * 60 * 1000;
   const CARDSIGHT_BASE = 'https://api.cardsight.ai/v1';
   const CARDSIGHT_KEY = 'dfb6c5b55ca4425cb657bdeab6f0ee60';
+  const GEMINI_KEY = 'AQ.Ab8RN6IqIrXGeeffmdQuJYQnnO-6_xEBY9slqAWkdrtMvbOgKw';
+  const GEMINI_IDENTIFY_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=';
   const CARDSIGHT_SEARCH_CACHE_KEY = 'cardsight_search_v1';
   const CARDSIGHT_PRICING_CACHE_KEY = 'cardsight_pricing_v1';
   const CARDSIGHT_SEARCH_TTL = 24 * 60 * 60 * 1000;
@@ -2315,9 +2330,9 @@
   function getCardCache(){ try{ return JSON.parse(localStorage.getItem(CARD_CACHE_KEY)||'{}'); }catch(e){ return {}; } }
   function setCardCache(c){ try{ localStorage.setItem(CARD_CACHE_KEY,JSON.stringify(c)); }catch(e){} }
   function getRecents(){ try{ return JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); }catch(e){ return []; } }
-  function pushRecent(id){
-    let r = getRecents().filter(x=>x!==id);
-    r.unshift(id);
+  function pushRecent(id, name){
+    let r = getRecents().filter(function(x){ return (typeof x==='object'?x.id:x) !== id; });
+    r.unshift({id: id, name: name||id});
     if(r.length>20) r=r.slice(0,20);
     try{ localStorage.setItem(RECENT_KEY,JSON.stringify(r)); }catch(e){}
   }
@@ -2456,7 +2471,7 @@
     const identifier = cardName+' — '+setName+' '+localId;
     if(!notesInput.value.trim()) notesInput.value = identifier;
     else notesInput.value = identifier+'; '+notesInput.value;
-    pushRecent(cardId);
+    pushRecent(cardId, cardName);
     setQrPage(0);
     renderDisplay();
   }
@@ -2745,6 +2760,27 @@
 
   let cardsightApiSkip = 0;
 
+  async function identifyCardFromImage(base64Data, mimeType){
+    try{
+      const res = await fetch(GEMINI_IDENTIFY_URL + GEMINI_KEY, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          contents:[{ parts:[
+            { text: 'This is a basketball trading card. Identify the player full name, card product/set name, year, and any parallel or variant name. Respond with only valid JSON, no markdown: {"player":"","set":"","year":"","parallel":""}' },
+            { inline_data:{ mime_type: mimeType, data: base64Data } }
+          ]}]
+        })
+      });
+      if(!res.ok) return null;
+      const data = await res.json();
+      const text = (data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text)||'';
+      const match = text.match(/\{[\s\S]*\}/);
+      if(!match) return null;
+      return JSON.parse(match[0]);
+    } catch(e){ return null; }
+  }
+
   async function searchCardsight(query, skip){
     const cacheKey = 'cs:'+query.toLowerCase()+':'+(skip||0);
     const cached = getCardsightSearchCached(cacheKey);
@@ -2845,27 +2881,31 @@
     h += '<button class="lookup-action-btn buy" data-mode="buy"'+dataAttrs+'>Buy <span class="lookup-action-buy-pct">'+buyPercentage+'%</span></button>';
     h += '</div>';
     h += '</div>';
-    // Graded section
+    // Graded section — structure: graded[].company_name + grades[].grade_value + records[]
     if(data.graded && data.graded.length){
-      data.graded.forEach(function(g){
-        if(!g.records||!g.records.length) return;
-        const gPrices = g.records.map(function(r){ return r.price; }).filter(function(p){ return p>0; });
-        if(!gPrices.length) return;
-        gPrices.sort(function(a,b){ return a-b; });
-        const gAvg = Math.round((gPrices.reduce(function(s,p){ return s+p; },0)/gPrices.length)*100)/100;
-        h += '<div class="lookup-variant-card">';
-        h += '<div class="lookup-variant-name">'+(g.grade||'Graded')+' · '+gPrices.length+' sales</div>';
-        h += '<div class="lookup-market-price">'+fmt(gAvg)+'</div>';
-        h += '<div class="lookup-sub-prices">';
-        h += '<div>Low <span class="price-low">'+fmt(gPrices[0])+'</span></div>';
-        h += '<div>High <span class="price-high">'+fmt(gPrices[gPrices.length-1])+'</span></div>';
-        h += '</div>';
-        const gDataAttrs = ' data-market="'+gAvg+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id=""';
-        h += '<div class="lookup-action-row">';
-        h += '<button class="lookup-action-btn sell" data-mode="sell"'+gDataAttrs+'>Sell</button>';
-        h += '<button class="lookup-action-btn buy" data-mode="buy"'+gDataAttrs+'>Buy <span class="lookup-action-buy-pct">'+buyPercentage+'%</span></button>';
-        h += '</div>';
-        h += '</div>';
+      data.graded.forEach(function(company){
+        if(!company.grades||!company.grades.length) return;
+        company.grades.forEach(function(g){
+          if(!g.records||!g.records.length) return;
+          const gPrices = g.records.map(function(r){ return r.price; }).filter(function(p){ return p>0; });
+          if(!gPrices.length) return;
+          gPrices.sort(function(a,b){ return a-b; });
+          const gAvg = Math.round((gPrices.reduce(function(s,p){ return s+p; },0)/gPrices.length)*100)/100;
+          const label = (company.company_name||'Graded')+' '+(g.grade_value||'');
+          h += '<div class="lookup-variant-card">';
+          h += '<div class="lookup-variant-name">'+label+' · '+gPrices.length+' sales</div>';
+          h += '<div class="lookup-market-price">'+fmt(gAvg)+'</div>';
+          h += '<div class="lookup-sub-prices">';
+          h += '<div>Low <span class="price-low">'+fmt(gPrices[0])+'</span></div>';
+          h += '<div>High <span class="price-high">'+fmt(gPrices[gPrices.length-1])+'</span></div>';
+          h += '</div>';
+          const gDataAttrs = ' data-market="'+gAvg+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id="'+encodeURIComponent(label)+'"';
+          h += '<div class="lookup-action-row">';
+          h += '<button class="lookup-action-btn sell" data-mode="sell"'+gDataAttrs+'>Sell</button>';
+          h += '<button class="lookup-action-btn buy" data-mode="buy"'+gDataAttrs+'>Buy <span class="lookup-action-buy-pct">'+buyPercentage+'%</span></button>';
+          h += '</div>';
+          h += '</div>';
+        });
       });
     }
     h += '</div></div>';
@@ -2882,10 +2922,16 @@
     html += '<div class="lookup-left">';
     const wrapId = 'imgwrap-'+item.id;
     const showLoading = isExpanded && imgUrl;
+    const phSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="22px" height="22px"><path d="M11.5 6C8.48 6 6 8.48 6 11.5v25C6 39.52 8.48 42 11.5 42h25C39.52 42 42 39.52 42 36.5v-25C42 8.48 39.52 6 36.5 6h-25zm0 3h25C37.9 9 39 10.1 39 11.5v25c0 .13-.02.26-.04.39L26.81 25.13a3 3 0 0 0-5.63 0L9.04 36.89A2.5 2.5 0 0 1 9 36.5v-25C9 10.1 10.1 9 11.5 9zm19 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-6.5 10a1 1 0 0 1 .73.29L36.8 38.97c-.1.01-.2.03-.3.03h-25c-.1 0-.2-.02-.3-.03L23.27 26.29A1 1 0 0 1 24 27z" fill="currentColor" opacity="0.3"/></svg>';
     html += '<div class="lookup-thumb-wrap'+(showLoading?' img-loading':'')+'" id="'+wrapId+'">';
-    html += '<img class="lookup-thumb" src="'+imgUrl+'" alt="" loading="'+(isExpanded?'eager':'lazy')+'"'
-      +(showLoading?' onload="var w=document.getElementById(\''+wrapId+'\');if(w)w.classList.remove(\'img-loading\')" onerror="this.style.display=\'none\';var w=document.getElementById(\''+wrapId+'\');if(w)w.classList.remove(\'img-loading\')"':'')
-      +'>';
+    if(imgUrl){
+      html += '<img class="lookup-thumb" src="'+imgUrl+'" alt="" loading="'+(isExpanded?'eager':'lazy')+'"'
+        +' onload="var w=document.getElementById(\''+wrapId+'\');if(w){w.classList.remove(\'img-loading\');var p=w.querySelector(\'.lookup-thumb-ph\');if(p)p.style.display=\'none\';}" onerror="this.style.display=\'none\';var w=document.getElementById(\''+wrapId+'\');if(w){w.classList.remove(\'img-loading\');var p=w.querySelector(\'.lookup-thumb-ph\');if(p)p.style.display=\'flex\';}"'
+        +'>';
+      html += '<div class="lookup-thumb-ph" style="display:none">'+phSvg+'</div>';
+    } else {
+      html += '<div class="lookup-thumb-ph">'+phSvg+'</div>';
+    }
     html += '</div>';
     html += '<div class="lookup-result-text"><div class="lookup-result-name">'+item.name+'</div>';
     if(setLabel) html += '<div class="lookup-result-sub">'+setLabel+'</div>';
@@ -2914,6 +2960,8 @@
             : item._source === 'lorcana' ? 'price updated daily'
             : null;
         if(dateStr) html += '<div class="lookup-card-date">'+dateStr+'</div>';
+      } else {
+        html += '<div class="lookup-card-date">sales last 90 days</div>';
       }
     }
     html += '</div>';
@@ -3103,9 +3151,14 @@
       return;
     }
     const cache = getCardCache();
-    const items = ids.map(function(id){
-      return cache[id] ? Object.assign({id},cache[id].card) : {id,name:id,image:''};
-    });
+    const items = ids.reduce(function(acc, entry){
+      const id = typeof entry==='object' ? entry.id : entry;
+      const storedName = typeof entry==='object' ? entry.name : null;
+      if(cache[id]){ acc.push(Object.assign({id}, cache[id].card)); return acc; }
+      if(!storedName) return acc; // discard old bare-string entries with no name
+      acc.push({id, name: storedName, image:''});
+      return acc;
+    }, []);
     allItems = items;
     displayPage = 0;
     lookupResults.innerHTML = '<div class="lookup-recent-header">Recent Searches</div>';
@@ -3179,9 +3232,14 @@
     const ids = getRecents();
     if(!ids.length) return;
     const cache = getCardCache();
-    const items = ids.map(function(id){
-      return cache[id] ? Object.assign({id},cache[id].card) : {id,name:id,image:''};
-    });
+    const items = ids.reduce(function(acc, entry){
+      const id = typeof entry==='object' ? entry.id : entry;
+      const storedName = typeof entry==='object' ? entry.name : null;
+      if(cache[id]){ acc.push(Object.assign({id}, cache[id].card)); return acc; }
+      if(!storedName) return acc; // discard old bare-string entries with no name
+      acc.push({id, name: storedName, image:''});
+      return acc;
+    }, []);
     allItems = items;
     displayPage = 0;
     searchHasMore = false;
@@ -3218,6 +3276,44 @@
     else lookupSearch.focus();
   });
 
+  lookupResults.addEventListener('click', function(e){
+    const link = e.target.closest('.lookup-ext-link');
+    if(!link) return;
+    const row = link.closest('.lookup-result');
+    if(!row) return;
+    const cardId = row.dataset.cardId;
+    const item = allItems.find(function(x){ return x.id===cardId; });
+    if(item) pushRecent(cardId, item.name);
+  });
+
+  document.getElementById('lookupCamBtn').addEventListener('click', function(){
+    document.getElementById('lookupCamInput').click();
+  });
+
+  document.getElementById('lookupCamInput').addEventListener('change', function(){
+    const file = this.files[0];
+    if(!file) return;
+    this.value = '';
+    const reader = new FileReader();
+    reader.onload = async function(e){
+      const dataUrl = e.target.result;
+      const base64 = dataUrl.split(',')[1];
+      const mimeType = file.type || 'image/jpeg';
+      lookupSearchWrap.classList.add('loading');
+      lookupResults.innerHTML = '<div class="lookup-loading">Identifying card…</div>';
+      const result = await identifyCardFromImage(base64, mimeType);
+      lookupSearchWrap.classList.remove('loading');
+      if(!result || !result.player){
+        lookupResults.innerHTML = '<div class="lookup-error">Couldn\'t identify card — try searching manually</div>';
+        return;
+      }
+      const query = [result.player, result.year, result.set, result.parallel].filter(Boolean).join(' ');
+      lookupSearch.value = query;
+      doSearch(query);
+    };
+    reader.readAsDataURL(file);
+  });
+
   document.getElementById('lookupModeToggle').addEventListener('click', function(e){
     const btn = e.target.closest('.lookup-mode-btn');
     if(!btn) return;
@@ -3225,6 +3321,7 @@
     if(mode === lookupMode) return;
     lookupMode = mode;
     document.querySelectorAll('.lookup-mode-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===mode); });
+    lookupSearchWrap.classList.toggle('basketball-mode', mode === 'basketball');
     lookupSearch.placeholder = 'Search card name…';
     checkRateLimitExpiry();
     hideRateLimit();
