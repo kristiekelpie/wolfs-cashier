@@ -2565,6 +2565,103 @@
     } catch(e){ return []; }
   }
 
+  const POKEWALLET_KEY = 'pk_test_b9eb9d1bfc8631dd6bed13b5f8808b2b551f5b1d13ac7d2e';
+  const POKEWALLET_BASE = 'https://api.pokewallet.io';
+  const pwImageCache = new Map();
+
+  function normalizePwPricing(tcgplayer, cardmarket){
+    const out = {};
+    if(tcgplayer && tcgplayer.prices){
+      const tp = {};
+      const prices = Array.isArray(tcgplayer.prices)
+        ? tcgplayer.prices
+        : [Object.assign({ sub_type_name: 'Normal' }, tcgplayer.prices)];
+      const firstUpdated = prices[0] && prices[0].updated_at ? prices[0].updated_at : null;
+      tp.updated = firstUpdated;
+      if(tcgplayer.url) tp._url = tcgplayer.url;
+      prices.forEach(function(p){
+        const key = (p.sub_type_name || 'normal').toLowerCase().replace(/\s+/g,'-');
+        tp[key] = { marketPrice: p.market_price||null, lowPrice: p.low_price||null, midPrice: p.mid_price||null, highPrice: p.high_price||null };
+      });
+      if(Object.keys(tp).filter(function(k){ return tp[k]&&typeof tp[k]==='object'; }).length)
+        out.tcgplayer = tp;
+    }
+    if(cardmarket && cardmarket.prices){
+      const cm = {};
+      const prices = Array.isArray(cardmarket.prices)
+        ? cardmarket.prices
+        : [Object.assign({ variant_type: 'normal' }, cardmarket.prices)];
+      const firstUpdated = prices[0] && prices[0].updated_at ? prices[0].updated_at : null;
+      cm.updated = firstUpdated;
+      if(cardmarket.product_url) cm._url = cardmarket.product_url;
+      prices.forEach(function(p){
+        if(p.variant_type && p.variant_type.toLowerCase().includes('holo')){
+          cm['avg-holo']=p.avg||null; cm['low-holo']=p.low||null; cm['trend-holo']=p.trend||null; cm['avg30-holo']=p.avg30||null;
+        } else {
+          cm.avg=p.avg||null; cm.low=p.low||null; cm.trend=p.trend||null; cm.avg30=p.avg30||null;
+        }
+      });
+      out.cardmarket = cm;
+    }
+    return out;
+  }
+
+  async function fetchPokewalletImage(id, size){
+    const key = id+(size||'low');
+    if(pwImageCache.has(key)) return pwImageCache.get(key);
+    try{
+      const res = await fetch(POKEWALLET_BASE+'/images/'+id+'?size='+(size||'low'), { headers: {'X-API-Key': POKEWALLET_KEY} });
+      if(!res.ok) return null;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      pwImageCache.set(key, url);
+      return url;
+    } catch(e){ return null; }
+  }
+
+  async function searchPokewalletPokemon(query){
+    try{
+      const res = await fetch(POKEWALLET_BASE+'/search?q='+encodeURIComponent(query)+'&limit=50', { headers: {'X-API-Key': POKEWALLET_KEY} });
+      if(!res.ok) return [];
+      const json = await res.json();
+      if(!json.results||!json.results.length) return [];
+      return json.results.map(function(c){
+        const ci = c.card_info || {};
+        return {
+          id: c.id,
+          name: ci.clean_name || ci.name || '',
+          image: '',
+          localId: ci.card_number || '',
+          set: { name: ci.set_name || '' },
+          _source: 'pokewallet',
+          pricing: normalizePwPricing(c.tcgplayer, c.cardmarket),
+          _detailLoaded: true
+        };
+      });
+    } catch(e){ return []; }
+  }
+
+  async function searchPokewalletOP(query){
+    try{
+      const res = await fetch(POKEWALLET_BASE+'/op/search?q='+encodeURIComponent(query)+'&limit=50', { headers: {'X-API-Key': POKEWALLET_KEY} });
+      if(!res.ok) return [];
+      const json = await res.json();
+      if(!json.data||!json.data.length) return [];
+      return json.data.map(function(c){
+        return {
+          id: c.id,
+          name: c.clean_name || c.name || '',
+          image: '',
+          localId: c.card_number || '',
+          set: { name: 'One Piece' + (c.card_number ? ' · '+c.card_number.split('-')[0] : '') },
+          _source: 'op',
+          pricing: normalizePwPricing(c.tcgplayer, c.cardmarket),
+          _detailLoaded: true
+        };
+      });
+    } catch(e){ return []; }
+  }
+
   function buildResultRow(item, isExpanded){
     let imgUrl = '';
     if(item._imageHigh){ imgUrl = isExpanded ? item._imageHigh : item.image; }
@@ -2582,7 +2679,8 @@
       const sName = item.set&&item.set.name?item.set.name:'';
       const lId = item.localId||'';
       const q = encodeURIComponent([cName,sName,lId].filter(Boolean).join(' '));
-      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+q+'&_sacat=183454&LH_Sold=1&LH_Complete=1';
+      const isOP = item._source === 'op';
+      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+q+(isOP ? '' : '&_sacat=183454')+'&LH_Sold=1&LH_Complete=1';
       const tcgpUrl = item._tcgplayerUrl || ('https://www.tcgplayer.com/search/all/product?q='+q);
       html += '<div class="lookup-ext-links">';
       html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
@@ -2636,16 +2734,25 @@
     const item = items.find(function(x){ return x.id===cardId; });
     if(!item) return;
     try{
-      const detail = item._source === 'ptcg'
-        ? await fetchPtcgCardDetail(cardId)
-        : await fetchCardDetail(cardId);
-      item.image = detail.image || item.image;
-      item._imageHigh = detail._imageHigh || item._imageHigh;
-      item._tcgplayerUrl = detail._tcgplayerUrl || item._tcgplayerUrl;
-      item.pricing = detail.pricing;
-      item.set = detail.set || item.set;
-      item.localId = detail.localId || item.localId;
-      item._detailLoaded = true;
+      if(item._source === 'pokewallet' || item._source === 'op'){
+        const imgUrl = await fetchPokewalletImage(item.id, 'low');
+        if(imgUrl){ item.image = imgUrl; }
+        const imgHigh = await fetchPokewalletImage(item.id, 'high');
+        if(imgHigh){ item._imageHigh = imgHigh; }
+        if(item.pricing && item.pricing.tcgplayer && item.pricing.tcgplayer._url)
+          item._tcgplayerUrl = item.pricing.tcgplayer._url;
+      } else {
+        const detail = item._source === 'ptcg'
+          ? await fetchPtcgCardDetail(cardId)
+          : await fetchCardDetail(cardId);
+        item.image = detail.image || item.image;
+        item._imageHigh = detail._imageHigh || item._imageHigh;
+        item._tcgplayerUrl = detail._tcgplayerUrl || item._tcgplayerUrl;
+        item.pricing = detail.pricing;
+        item.set = detail.set || item.set;
+        item.localId = detail.localId || item.localId;
+        item._detailLoaded = true;
+      }
       if(expandedCardId===cardId) renderResults(items);
     } catch(e){
       const detailEl = document.getElementById('detail-'+cardId);
@@ -2686,22 +2793,26 @@
     lookupSearchHistory.innerHTML = '';
     lookupResults.innerHTML = '<div class="lookup-loading">Searching…</div>';
     try{
-      const [setsMap] = await Promise.all([getTcgdexSetsMap()]);
+      const [setsMap, opItems] = await Promise.all([
+        getTcgdexSetsMap(),
+        searchPokewalletOP(query)
+      ]);
       const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=50';
       const res = await fetch(url, {signal: lookupAbort.signal});
       if(!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
-      let items = Array.isArray(data) ? data : [];
-      items.forEach(function(item){
+      let pokemonItems = Array.isArray(data) ? data : [];
+      pokemonItems.forEach(function(item){
         if(!item.set && item.id && item.localId){
           const code = setCodeFromCardId(item.id, item.localId);
           if(code && setsMap[code]) item.set = {name: setsMap[code], id: code};
         }
       });
-      if(!items.length){
-        lookupResults.innerHTML = '<div class="lookup-loading">Searching pokemontcg.io…</div>';
-        items = await searchPokemonTcg(query);
+      if(!pokemonItems.length){
+        lookupResults.innerHTML = '<div class="lookup-loading">Searching more sources…</div>';
+        pokemonItems = await searchPokewalletPokemon(query);
       }
+      let items = pokemonItems.concat(opItems);
       lookupSearchWrap.classList.remove('loading');
       if(items.length) pushSearchHistory(query);
       currentItems = items;
