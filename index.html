@@ -2732,7 +2732,7 @@
     const cached = getLorcastCached(cacheKey);
     if(cached) return cached;
     try{
-      const res = await fetch(LORCAST_BASE+'/cards/search?q='+encodeURIComponent(query));
+      const res = await fetch(LORCAST_BASE+'/cards/search?q='+encodeURIComponent(query)+'&unique=prints');
       if(res.status===429){ showRateLimit(); return []; }
       if(!res.ok) return [];
       const json = await res.json();
