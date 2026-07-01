@@ -693,12 +693,15 @@
   }
   .lookup-search-chip:active{ opacity:0.7; }
   .lookup-source-header{
-    display:flex; flex-direction:column; align-items:flex-start;
+    display:flex; align-items:baseline;
     width:100%; max-width:480px; margin:0 auto 8px; padding:0 4px;
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
-  .lookup-source-date{ font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0; align-self:flex-end; margin-bottom:2px; }
+  .lookup-left-date{
+    font-size:8px; color:var(--text-dim); text-align:right; width:100%;
+    margin-top:6px; text-transform:none; letter-spacing:0;
+  }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
   .lookup-action-btn{
     padding:8px 0; border-radius:8px; cursor:pointer;
@@ -2249,6 +2252,15 @@
     try{ localStorage.setItem(SEARCH_HISTORY_KEY,JSON.stringify(h)); }catch(e){}
   }
 
+  function fmtPricingDate(d){
+    if(!d) return null;
+    const date = new Date(d);
+    const day = date.getDate();
+    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getMonth()];
+    const year = String(date.getFullYear()).slice(-2);
+    return 'updated '+month+' '+day+', '+year;
+  }
+
   let lookupAbort = null;
   let lookupDebounce = null;
   let expandedCardId = null;
@@ -2277,14 +2289,7 @@
   function fmtPrice(v){ return v!=null ? '$'+Number(v).toFixed(2) : '—'; }
 
   function renderVariants(pricing, cardId, cardName, setName, localId){
-    const fmtDate = function(d){
-      if(!d) return null;
-      const date = new Date(d);
-      const day = String(date.getDate()).padStart(2,'0');
-      const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getMonth()];
-      const year = String(date.getFullYear()).slice(-2);
-      return 'updated '+month+' '+parseInt(day)+', '+year;
-    };
+    const fmtDate = fmtPricingDate;
     const fmt = function(v,sym){ return v!=null ? sym+v.toFixed(2) : '—'; };
 
     function variantCard(opts){
@@ -2310,24 +2315,19 @@
       return h;
     }
 
-    function section(name, variantsHtml, dateStr){
+    function section(name, variantsHtml){
       let h = '<div class="lookup-source">';
-      h += '<div class="lookup-source-header">';
-      if(dateStr) h += '<span class="lookup-source-date">'+dateStr+'</span>';
-      h += '<span class="lookup-source-name">'+name+'</span>';
-      h += '</div>';
+      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span></div>';
       h += '<div class="lookup-variants">'+variantsHtml+'</div>';
       h += '</div>';
       return h;
     }
 
     let html = '';
-    let firstDate = null;
 
     // TCGPlayer · USD
     const tp = pricing && pricing.tcgplayer;
     if(tp){
-      if(!firstDate && tp.updated) firstDate = fmtDate(tp.updated);
       const variantNames = Object.keys(tp).filter(function(k){ return tp[k] && typeof tp[k]==='object'; });
       if(variantNames.length){
         const cards = variantNames.map(function(vk){
@@ -2341,7 +2341,7 @@
             market: vp.marketPrice
           });
         }).join('');
-        html += section('TCGplayer · USD', cards, firstDate);
+        html += section('TCGplayer · USD', cards);
       }
     }
 
@@ -2554,6 +2554,14 @@
       html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
       html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
       html += '</div>';
+      // Date below buttons, right-aligned in left column
+      const pricing = item.pricing;
+      const dateStr = pricing && pricing.tcgplayer && pricing.tcgplayer.updated
+        ? fmtPricingDate(pricing.tcgplayer.updated)
+        : pricing && pricing.cardmarket && pricing.cardmarket.updated
+          ? fmtPricingDate(pricing.cardmarket.updated)
+          : null;
+      if(dateStr) html += '<div class="lookup-left-date">'+dateStr+'</div>';
     }
     html += '</div>';
     html += '<div class="lookup-result-chevron">›</div>';
