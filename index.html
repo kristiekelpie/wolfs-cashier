@@ -2285,8 +2285,8 @@
   const LORCAST_TTL = 24 * 60 * 60 * 1000;
   const CARDSIGHT_BASE = 'https://api.cardsight.ai/v1';
   const CARDSIGHT_KEY = 'dfb6c5b55ca4425cb657bdeab6f0ee60';
-  const GEMINI_KEY = 'AQ.Ab8RN6IqIrXGeeffmdQuJYQnnO-6_xEBY9slqAWkdrtMvbOgKw';
-  const GEMINI_IDENTIFY_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=';
+  const GEMINI_KEY = 'AQ.Ab8RN6Lln0kagsLki_ojkR9QrvBmlTlu-4xjmiM8uu0lpIX2mg';
+  const GEMINI_IDENTIFY_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions';
   const CARDSIGHT_SEARCH_CACHE_KEY = 'cardsight_search_v1';
   const CARDSIGHT_PRICING_CACHE_KEY = 'cardsight_pricing_v1';
   const CARDSIGHT_SEARCH_TTL = 24 * 60 * 60 * 1000;
@@ -2762,19 +2762,21 @@
 
   async function identifyCardFromImage(base64Data, mimeType){
     try{
-      const res = await fetch(GEMINI_IDENTIFY_URL + GEMINI_KEY, {
+      const res = await fetch(GEMINI_IDENTIFY_URL, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY},
         body: JSON.stringify({
-          contents:[{ parts:[
-            { text: 'This is a basketball trading card. Identify the player full name, card product/set name, year, and any parallel or variant name. Respond with only valid JSON, no markdown: {"player":"","set":"","year":"","parallel":""}' },
-            { inline_data:{ mime_type: mimeType, data: base64Data } }
-          ]}]
+          model: 'gemini-3.5-flash',
+          input: [
+            { type: 'text', text: 'This is a basketball trading card. Identify the player full name, card product/set name, year, and any parallel or variant name. Respond with only valid JSON, no markdown: {"player":"","set":"","year":"","parallel":""}' },
+            { type: 'image', data: base64Data, mime_type: mimeType }
+          ]
         })
       });
       if(!res.ok) return null;
       const data = await res.json();
-      const text = (data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]&&data.candidates[0].content.parts[0].text)||'';
+      const step = (data.steps||[]).find(function(s){ return s.type==='model_output'; });
+      const text = (step&&step.content&&step.content[0]&&step.content[0].text)||'';
       const match = text.match(/\{[\s\S]*\}/);
       if(!match) return null;
       return JSON.parse(match[0]);
