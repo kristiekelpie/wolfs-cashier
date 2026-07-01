@@ -631,11 +631,19 @@
     background:var(--copper-dim); margin-bottom:8px;
   }
   .lookup-search{
-    width:100%; box-sizing:border-box; padding:10px 14px; border-radius:10px;
+    width:100%; box-sizing:border-box; padding:10px 40px 10px 14px; border-radius:10px;
     border:1px solid var(--line); background:var(--panel-raised); color:var(--text);
     font-size:16px; outline:none; margin-bottom:8px;
   }
   .lookup-search:focus{ border-color:var(--copper); }
+  .lookup-search-btn{
+    position:absolute; right:8px; top:calc(50% - 4px); transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; color:var(--text-dim);
+    padding:4px; display:flex; align-items:center; line-height:1;
+    transition:color 0.15s;
+  }
+  .lookup-search-btn:hover{ color:var(--copper); }
+  .lookup-search-wrap.loading .lookup-search-btn{ display:none; }
   .lookup-result{
     width:100%; display:flex; align-items:center; gap:12px;
     background:var(--panel); border-radius:10px; padding:10px 12px; margin-bottom:8px;
@@ -1106,6 +1114,7 @@
     </div>
     <div class="lookup-search-wrap" id="lookupSearchWrap">
       <input type="search" class="lookup-search" id="lookupSearch" placeholder="Search card name…" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="lookup-search-btn" id="lookupSearchBtn" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10.2" y1="10.2" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
       <div class="lookup-spinner"></div>
     </div>
     <div id="lookupRateLimit" class="lookup-rate-limit" style="display:none">Search rate limit reached, try again in an hour</div>
@@ -3192,10 +3201,21 @@
   }
 
   lookupSearch.addEventListener('input', function(){
-    clearTimeout(lookupDebounce);
     const q = this.value.trim();
-    if(!q){ expandedCardId=null; showRecents(); return; }
-    lookupDebounce = setTimeout(function(){ doSearch(q); }, 300);
+    if(!q){ expandedCardId=null; showRecents(); }
+  });
+
+  lookupSearch.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      const q = this.value.trim();
+      if(q) doSearch(q);
+    }
+  });
+
+  document.getElementById('lookupSearchBtn').addEventListener('click', function(){
+    const q = lookupSearch.value.trim();
+    if(q) doSearch(q);
+    else lookupSearch.focus();
   });
 
   document.getElementById('lookupModeToggle').addEventListener('click', function(e){
