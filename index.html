@@ -660,7 +660,7 @@
   }
   .lookup-variant-name{ font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .lookup-market-price{ font-size:22px; font-weight:700; color:var(--green); font-family:'Courier New',monospace; }
-  .lookup-sub-prices{ font-size:11px; color:var(--text-dim); text-align:center; }
+  .lookup-sub-prices{ font-size:11px; color:var(--text-dim); text-align:center; display:flex; flex-direction:column; gap:1px; }
   @media (max-width: 600px){
     .lookup-market-price{ font-size:18px; }
     .lookup-sub-prices{ font-size:10px; }
@@ -699,7 +699,7 @@
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
   .lookup-updated-date{
-    width:100%; max-width:480px; margin:0 auto 12px; padding:0 4px;
+    width:100%; max-width:480px; margin:0 auto 4px; padding:0 4px;
     font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0;
   }
   @media (max-width: 600px){
@@ -2301,8 +2301,8 @@
       h += '<div class="lookup-market-price">'+fmt(opts.headline,sym)+'</div>';
       h += '<div class="lookup-sub-prices">';
       h += opts.sub.map(function(s){
-        return s[0]+' <span class="price-'+s[2]+'">'+fmt(s[1],sym)+'</span>';
-      }).join(' · ');
+        return '<div>'+s[0]+' <span class="price-'+s[2]+'">'+fmt(s[1],sym)+'</span></div>';
+      }).join('');
       h += '</div>';
       if(opts.useBtn){
         const useMarket = opts.market != null ? opts.market : 0;
