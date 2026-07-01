@@ -1098,6 +1098,7 @@
     <div class="lookup-mode-toggle" id="lookupModeToggle">
       <button class="lookup-mode-btn active" data-mode="pokemon">Pokémon</button>
       <button class="lookup-mode-btn" data-mode="op">One Piece</button>
+      <button class="lookup-mode-btn" data-mode="lorcana">Lorcana</button>
     </div>
     <div class="lookup-search-wrap" id="lookupSearchWrap">
       <input type="search" class="lookup-search" id="lookupSearch" placeholder="Search card name…" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -2253,6 +2254,9 @@
   const SETS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const CACHE_TTL = 24 * 60 * 60 * 1000;
   const PW_SEARCH_TTL = 60 * 60 * 1000;
+  const LORCAST_BASE = 'https://api.lorcast.com/v0';
+  const LORCAST_CACHE_KEY = 'lorcast_search_cache_v1';
+  const LORCAST_TTL = 24 * 60 * 60 * 1000;
   const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
 
   let lookupMode = 'pokemon';
@@ -2583,6 +2587,20 @@
     setPwSearchCache(c);
   }
 
+  function getLorcastCache(){ try{ return JSON.parse(localStorage.getItem(LORCAST_CACHE_KEY)||'{}'); }catch(e){ return {}; } }
+  function setLorcastCache(c){ try{ localStorage.setItem(LORCAST_CACHE_KEY,JSON.stringify(c)); }catch(e){} }
+  function getLorcastCached(key){
+    const c = getLorcastCache();
+    const entry = c[key];
+    if(entry && (Date.now()-entry.fetchedAt) < LORCAST_TTL) return entry.items;
+    return null;
+  }
+  function setLorcastCached(key, items){
+    const c = getLorcastCache();
+    c[key] = { items, fetchedAt: Date.now() };
+    setLorcastCache(c);
+  }
+
   const lookupRateLimitEl = document.getElementById('lookupRateLimit');
   function showRateLimit(){ pwRateLimited=true; lookupRateLimitEl.style.display=''; }
   function hideRateLimit(){ lookupRateLimitEl.style.display='none'; }
@@ -2688,6 +2706,45 @@
         };
       });
       setPwCached(cacheKey, items);
+      return items;
+    } catch(e){ return []; }
+  }
+
+  function normalizeLorcastPricing(prices){
+    if(!prices) return {};
+    const tp = { updated: null };
+    if(prices.usd != null) tp.normal = { marketPrice: parseFloat(prices.usd)||null, lowPrice: null, midPrice: null, highPrice: null };
+    if(prices.usd_foil != null) tp.foil = { marketPrice: parseFloat(prices.usd_foil)||null, lowPrice: null, midPrice: null, highPrice: null };
+    if(!tp.normal && !tp.foil) return {};
+    return { tcgplayer: tp };
+  }
+
+  async function searchLorcast(query){
+    const cacheKey = 'lc:'+query.toLowerCase();
+    const cached = getLorcastCached(cacheKey);
+    if(cached) return cached;
+    try{
+      const res = await fetch(LORCAST_BASE+'/cards/search?q='+encodeURIComponent(query));
+      if(res.status===429){ showRateLimit(); return []; }
+      if(!res.ok) return [];
+      const json = await res.json();
+      if(!json.results||!json.results.length) return [];
+      const items = json.results.map(function(c){
+        const dig = c.image_uris && c.image_uris.digital;
+        return {
+          id: c.id,
+          name: c.name + (c.version ? ' · '+c.version : ''),
+          image: dig ? (dig.small||'') : '',
+          _imageHigh: dig ? (dig.large||'') : '',
+          localId: c.collector_number||'',
+          set: { name: c.set&&c.set.name ? c.set.name : '' },
+          _source: 'lorcana',
+          pricing: normalizeLorcastPricing(c.prices),
+          _tcgplayerUrl: c.tcgplayer_id ? 'https://www.tcgplayer.com/product/'+c.tcgplayer_id : null,
+          _detailLoaded: true
+        };
+      });
+      setLorcastCached(cacheKey, items);
       return items;
     } catch(e){ return []; }
   }
@@ -2818,7 +2875,10 @@
     lookupSearchWrap.classList.add('loading');
     try{
       let newItems = [];
-      if(lookupMode === 'op'){
+      if(lookupMode === 'lorcana'){
+        newItems = [];
+        searchHasMore = false;
+      } else if(lookupMode === 'op'){
         newItems = await searchPokewalletOP(lastSearchQuery, searchApiPage);
       } else {
         const setsMap = await getTcgdexSetsMap();
@@ -2851,7 +2911,9 @@
     const item = items.find(function(x){ return x.id===cardId; });
     if(!item) return;
     try{
-      if(item._source === 'pokewallet' || item._source === 'op'){
+      if(item._source === 'lorcana'){
+        // images and pricing already loaded from search response, nothing to fetch
+      } else if(item._source === 'pokewallet' || item._source === 'op'){
         const imgUrl = await fetchPokewalletImage(item.id, 'low');
         if(imgUrl){ item.image = imgUrl; }
         const imgHigh = await fetchPokewalletImage(item.id, 'high');
@@ -2915,7 +2977,10 @@
     try{
       hideRateLimit();
       let items = [];
-      if(lookupMode === 'op'){
+      if(lookupMode === 'lorcana'){
+        items = await searchLorcast(query);
+        searchHasMore = false;
+      } else if(lookupMode === 'op'){
         items = await searchPokewalletOP(query, 1);
       } else {
         const setsMap = await getTcgdexSetsMap();
@@ -2939,7 +3004,7 @@
       allItems = items;
       displayPage = 0;
       searchApiPage = 1;
-      searchHasMore = items.length === PAGE_SIZE;
+      if(lookupMode !== 'lorcana') searchHasMore = items.length === PAGE_SIZE;
       lastSearchQuery = query;
       expandedCardId = null;
       renderPage();
