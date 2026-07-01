@@ -646,7 +646,7 @@
   .lookup-result-sub{ font-size:11px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .lookup-result.expanded .lookup-result-sub{ white-space:normal; overflow:visible; text-overflow:clip; line-height:1.3; }
   .lookup-result-chevron{ color:var(--text-dim); font-size:18px; flex-shrink:0; }
-  .lookup-result.expanded .lookup-result-chevron{ align-self:flex-start; }
+  .lookup-result.expanded .lookup-result-chevron{ display:none; }
   .lookup-detail{
     width:100%; box-sizing:border-box; padding:8px 0 4px;
     display:none; flex-direction:column; align-items:stretch; gap:8px; min-width:0;
@@ -660,7 +660,12 @@
   }
   .lookup-variant-name{ font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .lookup-market-price{ font-size:22px; font-weight:700; color:var(--green); font-family:'Courier New',monospace; }
-  .lookup-sub-prices{ font-size:11px; color:var(--text-dim); text-align:center; }
+  .lookup-sub-prices{ font-size:11px; color:var(--text-dim); text-align:center; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  @media (max-width: 600px){
+    .lookup-market-price{ font-size:18px; }
+    .lookup-sub-prices{ font-size:10px; flex-direction:column; gap:2px; }
+    .lookup-variant-name{ font-size:10px; }
+  }
   .price-low{ color:#6db8b8; font-weight:600; }
   .price-mid{ color:var(--text); font-weight:600; }
   .price-high{ color:#c49a6a; font-weight:600; }
@@ -707,7 +712,10 @@
     background:#3d4a5c; border:1px solid #5b7a9e; color:#7fa3c8;
   }
   .lookup-action-btn:active{ opacity:0.7; }
-  .lookup-action-buy-pct{ font-size:9px; opacity:0.7; font-weight:500; letter-spacing:0.04em; }
+  .lookup-action-buy-pct{ display:none; }
+  @media (max-width: 600px){
+    .lookup-action-btn{ font-size:11px; padding:6px 0; }
+  }
   .lookup-updated{ font-size:10px; color:var(--text-dim); text-align:center; margin-top:4px; }
   .lookup-no-price{ font-size:12px; color:var(--text-dim); margin:4px 0; }
   .lookup-empty{ text-align:center; color:var(--text-dim); font-size:14px; padding:32px 0; }
