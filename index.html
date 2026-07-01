@@ -693,12 +693,15 @@
   }
   .lookup-search-chip:active{ opacity:0.7; }
   .lookup-source-header{
-    display:flex; justify-content:space-between; align-items:baseline;
+    display:flex; justify-content:space-between; align-items:flex-start;
     width:100%; max-width:480px; margin:0 auto 8px; padding:0 4px;
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
-  .lookup-source-date{ font-size:10px; text-transform:none; letter-spacing:0; }
+  .lookup-source-date{ font-size:9px; text-transform:none; letter-spacing:0; white-space:nowrap; text-align:right; flex-shrink:0; margin-left:8px; }
+  @media (max-width: 600px){
+    .lookup-source-date{ font-size:8px; margin-left:4px; }
+  }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
   .lookup-action-btn{
     padding:8px 0; border-radius:8px; cursor:pointer;
@@ -2277,7 +2280,14 @@
   function fmtPrice(v){ return v!=null ? '$'+Number(v).toFixed(2) : '—'; }
 
   function renderVariants(pricing, cardId, cardName, setName, localId){
-    const fmtDate = function(d){ return d ? new Date(d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : null; };
+    const fmtDate = function(d){
+      if(!d) return null;
+      const date = new Date(d);
+      const day = String(date.getDate()).padStart(2,'0');
+      const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getMonth()];
+      const year = String(date.getFullYear()).slice(-2);
+      return 'Updated on '+day+'-'+month+'-'+year;
+    };
     const fmt = function(v,sym){ return v!=null ? sym+v.toFixed(2) : '—'; };
 
     function variantCard(opts){
@@ -2306,7 +2316,7 @@
     function section(name, dateStr, variantsHtml){
       let h = '<div class="lookup-source">';
       h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span>';
-      h += '<span class="lookup-source-date">'+(dateStr?'Up. '+dateStr:'')+'</span></div>';
+      h += '<span class="lookup-source-date">'+(dateStr||'')+'</span></div>';
       h += '<div class="lookup-variants">'+variantsHtml+'</div>';
       h += '</div>';
       return h;
