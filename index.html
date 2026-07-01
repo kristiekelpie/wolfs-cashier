@@ -2601,9 +2601,17 @@
     setLorcastCache(c);
   }
 
+  let rateLimitedAt = 0;
+  const RATE_LIMIT_DURATION = 60 * 60 * 1000;
   const lookupRateLimitEl = document.getElementById('lookupRateLimit');
-  function showRateLimit(){ pwRateLimited=true; lookupRateLimitEl.style.display=''; }
-  function hideRateLimit(){ lookupRateLimitEl.style.display='none'; }
+  function showRateLimit(){ pwRateLimited=true; rateLimitedAt=Date.now(); lookupRateLimitEl.style.display=''; }
+  function hideRateLimit(){
+    if(pwRateLimited && Date.now()-rateLimitedAt >= RATE_LIMIT_DURATION){ pwRateLimited=false; rateLimitedAt=0; }
+    lookupRateLimitEl.style.display='none';
+  }
+  function checkRateLimitExpiry(){
+    if(pwRateLimited && Date.now()-rateLimitedAt >= RATE_LIMIT_DURATION){ pwRateLimited=false; rateLimitedAt=0; lookupRateLimitEl.style.display='none'; }
+  }
 
   function normalizePwPricing(tcgplayer, cardmarket){
     const out = {};
@@ -2841,15 +2849,19 @@
         }
       });
     }
-    // Lazy-load pokewallet/OP thumbnails
+    // Lazy-load pokewallet/OP thumbnails — staggered to avoid burst rate limiting
+    let imgDelay = 0;
     pageItems.forEach(function(item){
       if((item._source === 'pokewallet' || item._source === 'op') && !item.image){
-        fetchPokewalletImage(item.id, 'low').then(function(url){
-          if(!url) return;
-          item.image = url;
-          const row = lookupResults.querySelector('[data-card-id="'+item.id+'"]');
-          if(row){ const img = row.querySelector('.lookup-thumb'); if(img) img.src = url; }
-        });
+        setTimeout(function(){
+          fetchPokewalletImage(item.id, 'low').then(function(url){
+            if(!url) return;
+            item.image = url;
+            const row = lookupResults.querySelector('[data-card-id="'+item.id+'"]');
+            if(row){ const img = row.querySelector('.lookup-thumb'); if(img) img.src = url; }
+          });
+        }, imgDelay);
+        imgDelay += 60;
       }
     });
     lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
@@ -3058,15 +3070,16 @@
     lookupMode = mode;
     document.querySelectorAll('.lookup-mode-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===mode); });
     lookupSearch.placeholder = 'Search card name…';
+    checkRateLimitExpiry();
     hideRateLimit();
     const q = lookupSearch.value.trim();
     if(q){ doSearch(q); } else { expandedCardId=null; showRecents(); }
   });
 
-  // Show recents + search history when lookup page is opened
+  // Show recents when lookup page is opened
   function initLookupPage(){
+    checkRateLimitExpiry();
     if(!lookupSearch.value.trim()){
-      renderSearchHistory();
       showRecents();
     }
   }
