@@ -660,10 +660,10 @@
   }
   .lookup-variant-name{ font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-dim); }
   .lookup-market-price{ font-size:22px; font-weight:700; color:var(--green); font-family:'Courier New',monospace; }
-  .lookup-sub-prices{ font-size:11px; color:var(--text-dim); text-align:center; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .lookup-sub-prices{ font-size:11px; color:var(--text-dim); text-align:center; }
   @media (max-width: 600px){
     .lookup-market-price{ font-size:18px; }
-    .lookup-sub-prices{ font-size:10px; flex-direction:column; gap:2px; }
+    .lookup-sub-prices{ font-size:10px; }
     .lookup-variant-name{ font-size:10px; }
   }
   .price-low{ color:#6db8b8; font-weight:600; }
@@ -698,9 +698,12 @@
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
-  .lookup-source-date{ font-size:9px; text-transform:none; letter-spacing:0; white-space:nowrap; text-align:right; flex-shrink:0; margin-left:8px; }
+  .lookup-updated-date{
+    width:100%; max-width:480px; margin:0 auto 12px; padding:0 4px;
+    font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0;
+  }
   @media (max-width: 600px){
-    .lookup-source-date{ font-size:8px; margin-left:4px; }
+    .lookup-updated-date{ font-size:8px; }
   }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
   .lookup-action-btn{
@@ -2313,20 +2316,21 @@
       return h;
     }
 
-    function section(name, dateStr, variantsHtml){
+    function section(name, variantsHtml){
       let h = '<div class="lookup-source">';
-      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span>';
-      h += '<span class="lookup-source-date">'+(dateStr||'')+'</span></div>';
+      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span></div>';
       h += '<div class="lookup-variants">'+variantsHtml+'</div>';
       h += '</div>';
       return h;
     }
 
     let html = '';
+    let firstDate = null;
 
     // TCGPlayer · USD
     const tp = pricing && pricing.tcgplayer;
     if(tp){
+      if(!firstDate && tp.updated) firstDate = fmtDate(tp.updated);
       const variantNames = Object.keys(tp).filter(function(k){ return tp[k] && typeof tp[k]==='object'; });
       if(variantNames.length){
         const cards = variantNames.map(function(vk){
@@ -2340,7 +2344,7 @@
             market: vp.marketPrice
           });
         }).join('');
-        html += section('TCGplayer · USD', fmtDate(tp.updated), cards);
+        html += section('TCGplayer · USD', cards);
       }
     }
 
@@ -2371,8 +2375,13 @@
         }));
       }
       if(cards.length){
-        html += section('Cardmarket · EUR', fmtDate(cm.updated), cards.join(''));
+        html += section('Cardmarket · EUR', cards.join(''));
       }
+    }
+
+    // Prepend date if we have one
+    if(firstDate){
+      html = '<div class="lookup-updated-date">'+firstDate+'</div>' + html;
     }
 
     return html || '<div class="lookup-no-price">No price data available</div>';
