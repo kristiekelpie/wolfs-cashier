@@ -700,14 +700,6 @@
   }
   .lookup-ext-link:hover{ color:var(--copper); border-color:var(--copper); }
   .lookup-ext-link:active{ opacity:0.7; }
-  .lookup-search-history{ display:flex; flex-wrap:wrap; gap:6px; padding:0 0 10px; }
-  .lookup-search-history:empty{ display:none; }
-  .lookup-search-chip{
-    padding:4px 10px; border-radius:12px;
-    background:var(--panel-raised); border:1px solid var(--line);
-    color:var(--text-dim); font-size:11px; cursor:pointer; white-space:nowrap;
-  }
-  .lookup-search-chip:active{ opacity:0.7; }
   .lookup-source-header{
     display:flex; align-items:baseline; justify-content:space-between;
     width:100%; max-width:480px; margin:0 auto 8px; padding:0 4px;
@@ -1112,7 +1104,6 @@
       <div class="lookup-spinner"></div>
     </div>
     <div id="lookupRateLimit" class="lookup-rate-limit" style="display:none">Search rate limit reached, try again in an hour</div>
-    <div id="lookupSearchHistory" class="lookup-search-history"></div>
     <div id="lookupResults"></div>
   </div>
 </div>
@@ -2150,7 +2141,6 @@
     applyQrClasses(page);
     if(page === LOOKUP_PAGE){
       expandedCardId = null;
-      renderSearchHistory();
       showRecents();
     }
   }
@@ -2258,7 +2248,6 @@
   // ---- Card Lookup ----
   const CARD_CACHE_KEY = 'tcgdex_card_cache_v2';
   const RECENT_KEY = 'tcgdex_recent';
-  const SEARCH_HISTORY_KEY = 'lookup_search_history';
   const SETS_CACHE_KEY = 'tcgdex_sets_v1';
   const PW_SEARCH_CACHE_KEY = 'pw_search_cache_v1';
   const SETS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
@@ -2309,14 +2298,6 @@
     if(r.length>20) r=r.slice(0,20);
     try{ localStorage.setItem(RECENT_KEY,JSON.stringify(r)); }catch(e){}
   }
-  function getSearchHistory(){ try{ return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY)||'[]'); }catch(e){ return []; } }
-  function pushSearchHistory(q){
-    let h = getSearchHistory().filter(x=>x!==q);
-    h.unshift(q);
-    if(h.length>8) h=h.slice(0,8);
-    try{ localStorage.setItem(SEARCH_HISTORY_KEY,JSON.stringify(h)); }catch(e){}
-  }
-
   function fmtPricingDate(d){
     if(!d) return null;
     const date = new Date(d);
@@ -2333,23 +2314,7 @@
   const lookupSearch = document.getElementById('lookupSearch');
   const lookupResults = document.getElementById('lookupResults');
   const lookupSearchWrap = document.getElementById('lookupSearchWrap');
-  const lookupSearchHistory = document.getElementById('lookupSearchHistory');
 
-  function renderSearchHistory(){
-    const h = getSearchHistory();
-    if(!h.length){ lookupSearchHistory.innerHTML=''; return; }
-    lookupSearchHistory.innerHTML = h.map(function(q){
-      return '<span class="lookup-search-chip" data-q="'+encodeURIComponent(q)+'">'+q+'</span>';
-    }).join('');
-    lookupSearchHistory.querySelectorAll('.lookup-search-chip').forEach(function(chip){
-      chip.addEventListener('click', function(){
-        const q = decodeURIComponent(this.dataset.q);
-        lookupSearch.value = q;
-        lookupSearchHistory.innerHTML = '';
-        doSearch(q);
-      });
-    });
-  }
 
   function fmtPrice(v){ return v!=null ? '$'+Number(v).toFixed(2) : '—'; }
 
@@ -2927,7 +2892,7 @@
     });
     allItems = items;
     displayPage = 0;
-    lookupResults.innerHTML = '<div class="lookup-recent-header">Recent</div>';
+    lookupResults.innerHTML = '<div class="lookup-recent-header">Recent Searches</div>';
     const recentContainer = document.createElement('div');
     lookupResults.appendChild(recentContainer);
     recentContainer.innerHTML = items.map(function(it){ return buildResultRow(it, false); }).join('');
@@ -2946,7 +2911,6 @@
     if(lookupAbort) lookupAbort.abort();
     lookupAbort = new AbortController();
     lookupSearchWrap.classList.add('loading');
-    lookupSearchHistory.innerHTML = '';
     lookupResults.innerHTML = '<div class="lookup-loading">Searching…</div>';
     try{
       hideRateLimit();
@@ -2972,7 +2936,6 @@
         }
       }
       lookupSearchWrap.classList.remove('loading');
-      if(items.length) pushSearchHistory(query);
       allItems = items;
       displayPage = 0;
       searchApiPage = 1;
@@ -2999,7 +2962,7 @@
     allItems = items;
     displayPage = 0;
     searchHasMore = false;
-    const recentHtml = '<div class="lookup-recent-header" style="margin-top:16px">Recent (cached)</div>'+items.map(function(it){
+    const recentHtml = '<div class="lookup-recent-header" style="margin-top:16px">Recent Searches</div>'+items.map(function(it){
       return buildResultRow(it, false);
     }).join('');
     lookupResults.innerHTML += recentHtml;
@@ -3017,7 +2980,7 @@
   lookupSearch.addEventListener('input', function(){
     clearTimeout(lookupDebounce);
     const q = this.value.trim();
-    if(!q){ expandedCardId=null; renderSearchHistory(); showRecents(); return; }
+    if(!q){ expandedCardId=null; showRecents(); return; }
     lookupDebounce = setTimeout(function(){ doSearch(q); }, 300);
   });
 
@@ -3031,7 +2994,7 @@
     lookupSearch.placeholder = 'Search card name…';
     hideRateLimit();
     const q = lookupSearch.value.trim();
-    if(q){ doSearch(q); } else { expandedCardId=null; renderSearchHistory(); showRecents(); }
+    if(q){ doSearch(q); } else { expandedCardId=null; showRecents(); }
   });
 
   // Show recents + search history when lookup page is opened
