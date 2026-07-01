@@ -2229,8 +2229,41 @@
   const CARD_CACHE_KEY = 'tcgdex_card_cache_v2';
   const RECENT_KEY = 'tcgdex_recent';
   const SEARCH_HISTORY_KEY = 'lookup_search_history';
+  const SETS_CACHE_KEY = 'tcgdex_sets_v1';
+  const SETS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const CACHE_TTL = 24 * 60 * 60 * 1000;
   const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
+
+  let tcgdexSetsMap = null;
+
+  async function getTcgdexSetsMap(){
+    if(tcgdexSetsMap) return tcgdexSetsMap;
+    try{
+      const cached = JSON.parse(localStorage.getItem(SETS_CACHE_KEY)||'null');
+      if(cached && (Date.now()-cached.fetchedAt) < SETS_CACHE_TTL){
+        tcgdexSetsMap = cached.map;
+        return tcgdexSetsMap;
+      }
+    }catch(e){}
+    try{
+      const res = await fetch(TCGDEX_BASE+'/sets');
+      if(res.ok){
+        const sets = await res.json();
+        const map = {};
+        if(Array.isArray(sets)) sets.forEach(function(s){ if(s.id && s.name) map[s.id] = s.name; });
+        tcgdexSetsMap = map;
+        try{ localStorage.setItem(SETS_CACHE_KEY, JSON.stringify({map, fetchedAt:Date.now()})); }catch(e){}
+      }
+    }catch(e){}
+    return tcgdexSetsMap || {};
+  }
+
+  function setCodeFromCardId(id, localId){
+    if(!id || !localId) return null;
+    const suffix = '-'+localId;
+    if(id.endsWith(suffix)) return id.slice(0, id.length - suffix.length);
+    return null;
+  }
 
   function getCardCache(){ try{ return JSON.parse(localStorage.getItem(CARD_CACHE_KEY)||'{}'); }catch(e){ return {}; } }
   function setCardCache(c){ try{ localStorage.setItem(CARD_CACHE_KEY,JSON.stringify(c)); }catch(e){} }
@@ -2514,7 +2547,7 @@
 
   async function searchPokemonTcg(query){
     try{
-      const url = 'https://api.pokemontcg.io/v2/cards?q=name:*'+encodeURIComponent(query)+'*&pageSize=20&orderBy=-set.releaseDate';
+      const url = 'https://api.pokemontcg.io/v2/cards?q=name:*'+encodeURIComponent(query)+'*&pageSize=50&orderBy=-set.releaseDate';
       const res = await fetch(url);
       if(!res.ok) return [];
       const json = await res.json();
@@ -2653,11 +2686,18 @@
     lookupSearchHistory.innerHTML = '';
     lookupResults.innerHTML = '<div class="lookup-loading">Searching…</div>';
     try{
-      const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=20';
+      const [setsMap] = await Promise.all([getTcgdexSetsMap()]);
+      const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=50';
       const res = await fetch(url, {signal: lookupAbort.signal});
       if(!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
       let items = Array.isArray(data) ? data : [];
+      items.forEach(function(item){
+        if(!item.set && item.id && item.localId){
+          const code = setCodeFromCardId(item.id, item.localId);
+          if(code && setsMap[code]) item.set = {name: setsMap[code], id: code};
+        }
+      });
       if(!items.length){
         lookupResults.innerHTML = '<div class="lookup-loading">Searching pokemontcg.io…</div>';
         items = await searchPokemonTcg(query);
