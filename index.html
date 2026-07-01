@@ -2768,19 +2768,17 @@
         body: JSON.stringify({
           model: 'gemini-3.5-flash',
           input: [
-            { type: 'text', text: 'This is a basketball trading card. Identify the player full name, card product/set name, year, and any parallel or variant name. Respond with only valid JSON, no markdown: {"player":"","set":"","year":"","parallel":""}' },
-            { type: 'image', data: base64Data, mime_type: mimeType }
+            { type: 'image', data: base64Data, mime_type: mimeType },
+            { type: 'text', text: 'Identify this trading card. Return ONLY the player name, year, and set name on a single line. Do not include any introductory or extra text.' }
           ]
         })
       });
-      if(!res.ok) return null;
+      if(!res.ok){ console.error('Gemini error', res.status, await res.text()); return null; }
       const data = await res.json();
       const step = (data.steps||[]).find(function(s){ return s.type==='model_output'; });
-      const text = (step&&step.content&&step.content[0]&&step.content[0].text)||'';
-      const match = text.match(/\{[\s\S]*\}/);
-      if(!match) return null;
-      return JSON.parse(match[0]);
-    } catch(e){ return null; }
+      const text = ((step&&step.content&&step.content[0]&&step.content[0].text)||'').trim();
+      return text || null;
+    } catch(e){ console.error('Gemini exception', e); return null; }
   }
 
   async function searchCardsight(query, skip){
@@ -3305,13 +3303,12 @@
       lookupResults.innerHTML = '<div class="lookup-loading">Identifying card…</div>';
       const result = await identifyCardFromImage(base64, mimeType);
       lookupSearchWrap.classList.remove('loading');
-      if(!result || !result.player){
+      if(!result){
         lookupResults.innerHTML = '<div class="lookup-error">Couldn\'t identify card — try searching manually</div>';
         return;
       }
-      const query = [result.player, result.year, result.set, result.parallel].filter(Boolean).join(' ');
-      lookupSearch.value = query;
-      doSearch(query);
+      lookupSearch.value = result;
+      doSearch(result);
     };
     reader.readAsDataURL(file);
   });
