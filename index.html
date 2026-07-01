@@ -716,6 +716,15 @@
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
   .lookup-source-date{ font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0; font-weight:400; }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
+  .lookup-card-date{ font-size:9px; color:var(--text-dim); margin-top:6px; text-align:center; width:100%; letter-spacing:0; text-transform:none; }
+  .lookup-pagination{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:4px; padding:8px 0; }
+  .lookup-pagination-btn{
+    flex:1; padding:8px 0; border-radius:8px; border:1px solid var(--line);
+    background:transparent; color:var(--text-dim); font-size:11px; font-weight:600;
+    letter-spacing:0.04em; text-transform:uppercase; cursor:pointer;
+  }
+  .lookup-pagination-btn:hover{ border-color:var(--copper); color:var(--copper); }
+  .lookup-pagination-info{ font-size:11px; color:var(--text-dim); text-align:center; flex-shrink:0; }
   .lookup-action-btn{
     padding:8px 0; border-radius:8px; cursor:pointer;
     font-size:12px; font-weight:700; letter-spacing:0.06em;
@@ -2663,12 +2672,12 @@
     } catch(e){ return null; }
   }
 
-  async function searchPokewalletPokemon(query){
-    const cacheKey = 'pk:'+query.toLowerCase();
+  async function searchPokewalletPokemon(query, page){
+    const cacheKey = 'pk:'+query.toLowerCase()+':'+(page||1);
     const cached = getPwCached(cacheKey);
     if(cached) return cached;
     try{
-      const res = await fetch(POKEWALLET_BASE+'/search?q='+encodeURIComponent(query)+'&limit=50', { headers: {'X-API-Key': POKEWALLET_KEY} });
+      const res = await fetch(POKEWALLET_BASE+'/search?q='+encodeURIComponent(query)+'&limit=50&page='+(page||1), { headers: {'X-API-Key': POKEWALLET_KEY} });
       if(res.status===429){ showRateLimit(); return []; }
       if(!res.ok) return [];
       const json = await res.json();
@@ -2691,12 +2700,12 @@
     } catch(e){ return []; }
   }
 
-  async function searchPokewalletOP(query){
-    const cacheKey = 'op:'+query.toLowerCase();
+  async function searchPokewalletOP(query, page){
+    const cacheKey = 'op:'+query.toLowerCase()+':'+(page||1);
     const cached = getPwCached(cacheKey);
     if(cached) return cached;
     try{
-      const res = await fetch(POKEWALLET_BASE+'/op/search?q='+encodeURIComponent(query)+'&limit=50', { headers: {'X-API-Key': POKEWALLET_KEY} });
+      const res = await fetch(POKEWALLET_BASE+'/op/search?q='+encodeURIComponent(query)+'&limit=50&page='+(page||1), { headers: {'X-API-Key': POKEWALLET_KEY} });
       if(res.status===429){ showRateLimit(); return []; }
       if(!res.ok) return [];
       const json = await res.json();
@@ -2738,22 +2747,23 @@
       const isOP = item._source === 'op';
       const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+q+(isOP ? '' : '&_sacat=183454')+'&LH_Sold=1&LH_Complete=1';
       const tcgpUrl = item._tcgplayerUrl || ('https://www.tcgplayer.com/search/all/product?q='+q);
-      html += '<div class="lookup-ext-links">';
-      html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
-      html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
-      html += '</div>';
-    }
-    html += '</div>';
-    html += '<div class="lookup-result-chevron">›</div>';
-    html += '<div class="lookup-detail" id="detail-'+item.id+'">';
-    if(isExpanded && item._detailLoaded){
       const pricing = item.pricing;
       const dateStr = pricing && pricing.tcgplayer && pricing.tcgplayer.updated
         ? fmtPricingDate(pricing.tcgplayer.updated)
         : pricing && pricing.cardmarket && pricing.cardmarket.updated
           ? fmtPricingDate(pricing.cardmarket.updated)
           : null;
-      html += renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'', dateStr);
+      html += '<div class="lookup-ext-links">';
+      html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
+      html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
+      html += '</div>';
+      if(dateStr) html += '<div class="lookup-card-date">'+dateStr+'</div>';
+    }
+    html += '</div>';
+    html += '<div class="lookup-result-chevron">›</div>';
+    html += '<div class="lookup-detail" id="detail-'+item.id+'">';
+    if(isExpanded && item._detailLoaded){
+      html += renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'', null);
     } else if(isExpanded){
       html += '<div class="lookup-loading">Loading…</div>';
     }
@@ -2761,16 +2771,55 @@
     return html;
   }
 
-  function renderResults(items){
-    if(!items.length){
+  const PAGE_SIZE = 50;
+  let allItems = [];
+  let displayPage = 0;
+  let searchApiPage = 1;
+  let searchHasMore = false;
+  let lastSearchQuery = '';
+
+  function renderResults(pageItems){
+    if(!pageItems.length && !allItems.length){
       lookupResults.innerHTML = '<div class="lookup-empty">No cards found for "'+lookupSearch.value+'"</div>';
       return;
     }
-    lookupResults.innerHTML = items.map(function(it){
+    const start = displayPage * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    const total = allItems.length;
+    lookupResults.innerHTML = pageItems.map(function(it){
       return buildResultRow(it, expandedCardId===it.id);
     }).join('');
-    // Lazily load pokewallet/OP thumbnails directly into DOM without re-render
-    items.forEach(function(item){
+    // Pagination controls
+    if(total > PAGE_SIZE || searchHasMore){
+      let paginationHtml = '<div class="lookup-pagination">';
+      if(displayPage > 0){
+        paginationHtml += '<button class="lookup-pagination-btn" id="lookupPrevBtn">← Prev 50 ('+(Math.max(1,start-PAGE_SIZE+1))+'–'+start+')</button>';
+      } else {
+        paginationHtml += '<span></span>';
+      }
+      paginationHtml += '<span class="lookup-pagination-info">'+(start+1)+'–'+Math.min(end,total)+(searchHasMore?'+':'')+' results</span>';
+      if(end < total || searchHasMore){
+        const nextEnd = Math.min(end+PAGE_SIZE, searchHasMore ? end+PAGE_SIZE : total);
+        paginationHtml += '<button class="lookup-pagination-btn" id="lookupNextBtn">Next 50 ('+(end+1)+'–'+nextEnd+') →</button>';
+      } else {
+        paginationHtml += '<span></span>';
+      }
+      paginationHtml += '</div>';
+      lookupResults.innerHTML += paginationHtml;
+      const prevBtn = document.getElementById('lookupPrevBtn');
+      const nextBtn = document.getElementById('lookupNextBtn');
+      if(prevBtn) prevBtn.addEventListener('click', function(){ displayPage--; renderPage(); });
+      if(nextBtn) nextBtn.addEventListener('click', function(){
+        displayPage++;
+        if(displayPage * PAGE_SIZE >= allItems.length && searchHasMore){
+          loadMoreResults();
+        } else {
+          renderPage();
+        }
+      });
+    }
+    // Lazy-load pokewallet/OP thumbnails
+    pageItems.forEach(function(item){
       if((item._source === 'pokewallet' || item._source === 'op') && !item.image){
         fetchPokewalletImage(item.id, 'low').then(function(url){
           if(!url) return;
@@ -2782,9 +2831,9 @@
     });
     lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
       row.addEventListener('click', function(e){
-        if(e.target.closest('.lookup-action-btn,.lookup-ext-link')) return;
+        if(e.target.closest('.lookup-action-btn,.lookup-ext-link,.lookup-pagination-btn')) return;
         const cid = this.dataset.cardId;
-        toggleExpand(cid, items);
+        toggleExpand(cid);
       });
       row.querySelectorAll('.lookup-action-btn').forEach(function(btn){
         btn.addEventListener('click', function(e){ e.stopPropagation(); handleUse(this); });
@@ -2792,9 +2841,45 @@
     });
   }
 
-  let currentItems = [];
+  function renderPage(){
+    const start = displayPage * PAGE_SIZE;
+    const pageItems = allItems.slice(start, start + PAGE_SIZE);
+    expandedCardId = null;
+    renderResults(pageItems);
+  }
 
-  async function toggleExpand(cardId, items){
+  async function loadMoreResults(){
+    searchApiPage++;
+    lookupSearchWrap.classList.add('loading');
+    try{
+      let newItems = [];
+      if(lookupMode === 'op'){
+        newItems = await searchPokewalletOP(lastSearchQuery, searchApiPage);
+      } else {
+        const setsMap = await getTcgdexSetsMap();
+        const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(lastSearchQuery)+'&pagination:itemsPerPage=50&pagination:page='+searchApiPage;
+        const res = await fetch(url);
+        if(res.ok){
+          const data = await res.json();
+          newItems = Array.isArray(data) ? data : [];
+          newItems.forEach(function(item){
+            if(!item.set && item.id && item.localId){
+              const code = setCodeFromCardId(item.id, item.localId);
+              if(code && setsMap[code]) item.set = {name: setsMap[code], id: code};
+            }
+          });
+        }
+        if(!newItems.length) newItems = await searchPokewalletPokemon(lastSearchQuery, searchApiPage);
+      }
+      searchHasMore = newItems.length === PAGE_SIZE;
+      allItems = allItems.concat(newItems);
+    } catch(e){}
+    lookupSearchWrap.classList.remove('loading');
+    renderPage();
+  }
+
+  async function toggleExpand(cardId){
+    const items = allItems.slice(displayPage * PAGE_SIZE, (displayPage + 1) * PAGE_SIZE);
     if(expandedCardId === cardId){ expandedCardId = null; renderResults(items); return; }
     expandedCardId = cardId;
     renderResults(items);
@@ -2820,7 +2905,10 @@
         item.localId = detail.localId || item.localId;
         item._detailLoaded = true;
       }
-      if(expandedCardId===cardId) renderResults(items);
+      if(expandedCardId===cardId){
+        const pageItems = allItems.slice(displayPage*PAGE_SIZE, (displayPage+1)*PAGE_SIZE);
+        renderResults(pageItems);
+      }
     } catch(e){
       const detailEl = document.getElementById('detail-'+cardId);
       if(detailEl) detailEl.innerHTML = '<div class="lookup-error">Couldn\'t load card details</div>';
@@ -2830,22 +2918,23 @@
   function showRecents(){
     const ids = getRecents();
     if(!ids.length){
-      lookupResults.innerHTML = '<div class="lookup-empty">Search for a card name above</div>';
+      lookupResults.innerHTML = '';
       return;
     }
     const cache = getCardCache();
     const items = ids.map(function(id){
       return cache[id] ? Object.assign({id},cache[id].card) : {id,name:id,image:''};
     });
-    currentItems = items;
-    lookupResults.innerHTML = '<div class="lookup-recent-header">Recent</div>'+items.map(function(it){
-      return buildResultRow(it, expandedCardId===it.id);
-    }).join('');
-    lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
+    allItems = items;
+    displayPage = 0;
+    lookupResults.innerHTML = '<div class="lookup-recent-header">Recent</div>';
+    const recentContainer = document.createElement('div');
+    lookupResults.appendChild(recentContainer);
+    recentContainer.innerHTML = items.map(function(it){ return buildResultRow(it, false); }).join('');
+    recentContainer.querySelectorAll('.lookup-result').forEach(function(row){
       row.addEventListener('click', function(e){
         if(e.target.closest('.lookup-action-btn,.lookup-ext-link')) return;
-        const cid = this.dataset.cardId;
-        toggleExpand(cid, items);
+        toggleExpand(this.dataset.cardId);
       });
       row.querySelectorAll('.lookup-action-btn').forEach(function(btn){
         btn.addEventListener('click', function(e){ e.stopPropagation(); handleUse(this); });
@@ -2863,10 +2952,10 @@
       hideRateLimit();
       let items = [];
       if(lookupMode === 'op'){
-        items = await searchPokewalletOP(query);
+        items = await searchPokewalletOP(query, 1);
       } else {
         const setsMap = await getTcgdexSetsMap();
-        const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=50';
+        const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=50&pagination:page=1';
         const res = await fetch(url, {signal: lookupAbort.signal});
         if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
@@ -2879,14 +2968,18 @@
         });
         if(!items.length){
           lookupResults.innerHTML = '<div class="lookup-loading">Searching more sources…</div>';
-          items = await searchPokewalletPokemon(query);
+          items = await searchPokewalletPokemon(query, 1);
         }
       }
       lookupSearchWrap.classList.remove('loading');
       if(items.length) pushSearchHistory(query);
-      currentItems = items;
+      allItems = items;
+      displayPage = 0;
+      searchApiPage = 1;
+      searchHasMore = items.length === PAGE_SIZE;
+      lastSearchQuery = query;
       expandedCardId = null;
-      renderResults(currentItems);
+      renderPage();
     } catch(e){
       if(e.name==='AbortError') return;
       lookupSearchWrap.classList.remove('loading');
@@ -2903,10 +2996,22 @@
     const items = ids.map(function(id){
       return cache[id] ? Object.assign({id},cache[id].card) : {id,name:id,image:''};
     });
+    allItems = items;
+    displayPage = 0;
+    searchHasMore = false;
     const recentHtml = '<div class="lookup-recent-header" style="margin-top:16px">Recent (cached)</div>'+items.map(function(it){
       return buildResultRow(it, false);
     }).join('');
     lookupResults.innerHTML += recentHtml;
+    lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('.lookup-action-btn,.lookup-ext-link')) return;
+        toggleExpand(this.dataset.cardId);
+      });
+      row.querySelectorAll('.lookup-action-btn').forEach(function(btn){
+        btn.addEventListener('click', function(e){ e.stopPropagation(); handleUse(this); });
+      });
+    });
   }
 
   lookupSearch.addEventListener('input', function(){
@@ -2923,7 +3028,7 @@
     if(mode === lookupMode) return;
     lookupMode = mode;
     document.querySelectorAll('.lookup-mode-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===mode); });
-    lookupSearch.placeholder = mode === 'op' ? 'Search One Piece card name…' : 'Search card name…';
+    lookupSearch.placeholder = 'Search card name…';
     hideRateLimit();
     const q = lookupSearch.value.trim();
     if(q){ doSearch(q); } else { expandedCardId=null; renderSearchHistory(); showRecents(); }
