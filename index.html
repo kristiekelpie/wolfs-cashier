@@ -2283,7 +2283,7 @@
       const day = String(date.getDate()).padStart(2,'0');
       const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getMonth()];
       const year = String(date.getFullYear()).slice(-2);
-      return 'Updated on '+day+'-'+month+'-'+year;
+      return 'updated '+month+' '+parseInt(day)+', '+year;
     };
     const fmt = function(v,sym){ return v!=null ? sym+v.toFixed(2) : '—'; };
 
