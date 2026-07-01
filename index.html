@@ -1102,6 +1102,7 @@
       <button class="lookup-mode-btn active" data-mode="pokemon">Pokémon</button>
       <button class="lookup-mode-btn" data-mode="op">One Piece</button>
       <button class="lookup-mode-btn" data-mode="lorcana">Lorcana</button>
+      <button class="lookup-mode-btn" data-mode="basketball">Basketball</button>
     </div>
     <div class="lookup-search-wrap" id="lookupSearchWrap">
       <input type="search" class="lookup-search" id="lookupSearch" placeholder="Search card name…" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -2260,6 +2261,12 @@
   const LORCAST_BASE = 'https://api.lorcast.com/v0';
   const LORCAST_CACHE_KEY = 'lorcast_search_cache_v1';
   const LORCAST_TTL = 24 * 60 * 60 * 1000;
+  const CARDSIGHT_BASE = 'https://api.cardsight.ai/v1';
+  const CARDSIGHT_KEY = 'dfb6c5b55ca4425cb657bdeab6f0ee60';
+  const CARDSIGHT_SEARCH_CACHE_KEY = 'cardsight_search_v1';
+  const CARDSIGHT_PRICING_CACHE_KEY = 'cardsight_pricing_v1';
+  const CARDSIGHT_SEARCH_TTL = 24 * 60 * 60 * 1000;
+  const CARDSIGHT_PRICING_TTL = 6 * 60 * 60 * 1000;
   const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
 
   let lookupMode = 'pokemon';
@@ -2542,6 +2549,35 @@
     setLorcastCache(c);
   }
 
+  function getCardsightSearchCache(){ try{ return JSON.parse(localStorage.getItem(CARDSIGHT_SEARCH_CACHE_KEY)||'{}'); }catch(e){ return {}; } }
+  function setCardsightSearchCache(c){ try{ localStorage.setItem(CARDSIGHT_SEARCH_CACHE_KEY,JSON.stringify(c)); }catch(e){} }
+  function getCardsightSearchCached(key){
+    const c = getCardsightSearchCache();
+    const entry = c[key];
+    if(entry && (Date.now()-entry.fetchedAt) < CARDSIGHT_SEARCH_TTL) return entry.items;
+    return null;
+  }
+  function setCardsightSearchCached(key, items){
+    const c = getCardsightSearchCache();
+    c[key] = { items, fetchedAt: Date.now() };
+    setCardsightSearchCache(c);
+  }
+
+  function getCardsightPricingCache(){ try{ return JSON.parse(localStorage.getItem(CARDSIGHT_PRICING_CACHE_KEY)||'{}'); }catch(e){ return {}; } }
+  function setCardsightPricingCache(c){ try{ localStorage.setItem(CARDSIGHT_PRICING_CACHE_KEY,JSON.stringify(c)); }catch(e){} }
+  function getCardsightPricingCached(id){
+    const c = getCardsightPricingCache();
+    const entry = c[id];
+    if(entry && (Date.now()-entry.fetchedAt) < CARDSIGHT_PRICING_TTL) return entry.data;
+    return null;
+  }
+  function setCardsightPricingCached(id, data){
+    const c = getCardsightPricingCache();
+    c[id] = { data, fetchedAt: Date.now() };
+    setCardsightPricingCache(c);
+  }
+
+
   let rateLimitedAt = 0;
   const RATE_LIMIT_DURATION = 60 * 60 * 1000;
   const lookupRateLimitEl = document.getElementById('lookupRateLimit');
@@ -2698,6 +2734,135 @@
     } catch(e){ return []; }
   }
 
+  let cardsightApiSkip = 0;
+
+  async function searchCardsight(query, skip){
+    const cacheKey = 'cs:'+query.toLowerCase()+':'+(skip||0);
+    const cached = getCardsightSearchCached(cacheKey);
+    if(cached) return cached;
+    try{
+      const res = await fetch(CARDSIGHT_BASE+'/catalog/search?q='+encodeURIComponent(query)+'&take=50&skip='+(skip||0),
+        { headers: {'X-API-Key': CARDSIGHT_KEY} });
+      if(res.status===429){ showRateLimit(); return []; }
+      if(!res.ok) return [];
+      const json = await res.json();
+      if(!json.results||!json.results.length) return [];
+      const items = json.results
+        .filter(function(c){ return c.type==='card'; })
+        .map(function(c){
+          const setLabel = [c.year, c.releaseName, c.setName].filter(Boolean).join(' · ');
+          return {
+            id: c.id,
+            name: c.name + (c.parallelName ? ' ['+c.parallelName+']' : ''),
+            image: '',
+            _imageHigh: '',
+            localId: '',
+            set: { name: setLabel },
+            _source: 'cardsight',
+            pricing: null,
+            _detailLoaded: false
+          };
+        });
+      setCardsightSearchCached(cacheKey, items);
+      return items;
+    } catch(e){ return []; }
+  }
+
+  async function fetchCardsightPricing(cardId){
+    const cached = getCardsightPricingCached(cardId);
+    if(cached) return cached;
+    try{
+      const res = await fetch(CARDSIGHT_BASE+'/pricing/'+cardId+'?period=90d&listing_type=both',
+        { headers: {'X-API-Key': CARDSIGHT_KEY} });
+      if(!res.ok) return null;
+      const data = await res.json();
+      setCardsightPricingCached(cardId, data);
+      return data;
+    } catch(e){ return null; }
+  }
+
+  function normalizeCardsightPricing(data){
+    if(!data||!data.raw||!data.raw.records||!data.raw.records.length) return {};
+    const prices = data.raw.records.map(function(r){ return r.price; }).filter(function(p){ return p>0; });
+    if(!prices.length) return {};
+    prices.sort(function(a,b){ return a-b; });
+    const low = prices[0];
+    const high = prices[prices.length-1];
+    const avg = Math.round((prices.reduce(function(s,p){ return s+p; },0)/prices.length)*100)/100;
+    const mid = prices[Math.floor(prices.length/2)];
+    const lastDate = data.raw.records[0] ? data.raw.records[0].date : null;
+    const count = data.raw.count || prices.length;
+    return {
+      tcgplayer: {
+        updated: lastDate,
+        _count: count,
+        raw: { marketPrice: avg, lowPrice: low, midPrice: mid, highPrice: high }
+      }
+    };
+  }
+
+  function renderSportsCardSection(data, cardId, cardName, setName){
+    if(!data||!data.raw||!data.raw.records||!data.raw.records.length){
+      return '<div class="lookup-no-price">No recent sales data found</div>';
+    }
+    const records = data.raw.records;
+    const prices = records.map(function(r){ return r.price; }).filter(function(p){ return p>0; });
+    if(!prices.length) return '<div class="lookup-no-price">No recent sales data found</div>';
+    prices.sort(function(a,b){ return a-b; });
+    const low = prices[0];
+    const high = prices[prices.length-1];
+    const avg = Math.round((prices.reduce(function(s,p){ return s+p; },0)/prices.length)*100)/100;
+    const mid = prices[Math.floor(prices.length/2)];
+    const count = data.raw.count || prices.length;
+    const lastDate = records[0] && records[0].date ? fmtPricingDate(records[0].date) : null;
+    const fmt = function(v){ return v!=null ? '$'+v.toFixed(2) : '—'; };
+    let h = '<div class="lookup-source">';
+    h += '<div class="lookup-source-header"><span class="lookup-source-name">eBay Sales · USD</span>';
+    if(lastDate) h += '<span class="lookup-source-date">'+lastDate+'</span>';
+    h += '</div>';
+    h += '<div class="lookup-variants">';
+    h += '<div class="lookup-variant-card">';
+    h += '<div class="lookup-variant-name">Raw · '+count+' sales (90d)</div>';
+    h += '<div class="lookup-market-price">'+fmt(avg)+'</div>';
+    h += '<div class="lookup-sub-prices">';
+    h += '<div>Low <span class="price-low">'+fmt(low)+'</span></div>';
+    h += '<div>Mid <span class="price-mid">'+fmt(mid)+'</span></div>';
+    h += '<div>High <span class="price-high">'+fmt(high)+'</span></div>';
+    h += '</div>';
+    const useMarket = avg != null ? avg : 0;
+    const dataAttrs = ' data-market="'+useMarket+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id=""';
+    h += '<div class="lookup-action-row">';
+    h += '<button class="lookup-action-btn sell" data-mode="sell"'+dataAttrs+'>Sell</button>';
+    h += '<button class="lookup-action-btn buy" data-mode="buy"'+dataAttrs+'>Buy <span class="lookup-action-buy-pct">'+buyPercentage+'%</span></button>';
+    h += '</div>';
+    h += '</div>';
+    // Graded section
+    if(data.graded && data.graded.length){
+      data.graded.forEach(function(g){
+        if(!g.records||!g.records.length) return;
+        const gPrices = g.records.map(function(r){ return r.price; }).filter(function(p){ return p>0; });
+        if(!gPrices.length) return;
+        gPrices.sort(function(a,b){ return a-b; });
+        const gAvg = Math.round((gPrices.reduce(function(s,p){ return s+p; },0)/gPrices.length)*100)/100;
+        h += '<div class="lookup-variant-card">';
+        h += '<div class="lookup-variant-name">'+(g.grade||'Graded')+' · '+gPrices.length+' sales</div>';
+        h += '<div class="lookup-market-price">'+fmt(gAvg)+'</div>';
+        h += '<div class="lookup-sub-prices">';
+        h += '<div>Low <span class="price-low">'+fmt(gPrices[0])+'</span></div>';
+        h += '<div>High <span class="price-high">'+fmt(gPrices[gPrices.length-1])+'</span></div>';
+        h += '</div>';
+        const gDataAttrs = ' data-market="'+gAvg+'" data-card-id="'+cardId+'" data-card-name="'+encodeURIComponent(cardName)+'" data-set-name="'+encodeURIComponent(setName)+'" data-local-id=""';
+        h += '<div class="lookup-action-row">';
+        h += '<button class="lookup-action-btn sell" data-mode="sell"'+gDataAttrs+'>Sell</button>';
+        h += '<button class="lookup-action-btn buy" data-mode="buy"'+gDataAttrs+'>Buy <span class="lookup-action-buy-pct">'+buyPercentage+'%</span></button>';
+        h += '</div>';
+        h += '</div>';
+      });
+    }
+    h += '</div></div>';
+    return h;
+  }
+
   function buildResultRow(item, isExpanded){
     let imgUrl = '';
     if(item._imageHigh){ imgUrl = isExpanded ? item._imageHigh : item.image; }
@@ -2721,27 +2886,36 @@
       const sName = item.set&&item.set.name?item.set.name:'';
       const lId = item.localId||'';
       const q = encodeURIComponent([cName,sName,lId].filter(Boolean).join(' '));
+      const isCS = item._source === 'cardsight';
       const isOP = item._source === 'op';
-      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+q+(isOP ? '' : '&_sacat=183454')+'&LH_Sold=1&LH_Complete=1';
-      const tcgpUrl = item._tcgplayerUrl || ('https://www.tcgplayer.com/search/all/product?q='+q);
-      const pricing = item.pricing;
-      const dateStr = pricing && pricing.tcgplayer && pricing.tcgplayer.updated
-        ? fmtPricingDate(pricing.tcgplayer.updated)
-        : pricing && pricing.cardmarket && pricing.cardmarket.updated
-          ? fmtPricingDate(pricing.cardmarket.updated)
-          : item._source === 'lorcana' ? 'price updated daily'
-          : null;
+      const ebayUrl = 'https://www.ebay.com/sch/i.html?_nkw='+q+(isOP ? '' : '&_sacat='+(isCS?'261328':'183454'))+'&LH_Sold=1&LH_Complete=1';
       html += '<div class="lookup-ext-links">';
-      html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
+      if(!isCS){
+        const tcgpUrl = item._tcgplayerUrl || ('https://www.tcgplayer.com/search/all/product?q='+q);
+        html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
+      }
       html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
       html += '</div>';
-      if(dateStr) html += '<div class="lookup-card-date">'+dateStr+'</div>';
+      if(!isCS){
+        const pricing = item.pricing;
+        const dateStr = pricing && pricing.tcgplayer && pricing.tcgplayer.updated
+          ? fmtPricingDate(pricing.tcgplayer.updated)
+          : pricing && pricing.cardmarket && pricing.cardmarket.updated
+            ? fmtPricingDate(pricing.cardmarket.updated)
+            : item._source === 'lorcana' ? 'price updated daily'
+            : null;
+        if(dateStr) html += '<div class="lookup-card-date">'+dateStr+'</div>';
+      }
     }
     html += '</div>';
     html += '<div class="lookup-result-chevron">›</div>';
     html += '<div class="lookup-detail" id="detail-'+item.id+'">';
     if(isExpanded && item._detailLoaded){
-      html += renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'', null);
+      if(item._source === 'cardsight'){
+        html += renderSportsCardSection(item._pricingData, item.id, item.name, item.set&&item.set.name?item.set.name:'');
+      } else {
+        html += renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'', null);
+      }
     } else if(isExpanded){
       html += '<div class="lookup-loading">Loading…</div>';
     }
@@ -2838,6 +3012,10 @@
       if(lookupMode === 'lorcana'){
         newItems = [];
         searchHasMore = false;
+      } else if(lookupMode === 'basketball'){
+        cardsightApiSkip += 50;
+        newItems = await searchCardsight(lastSearchQuery, cardsightApiSkip);
+        searchHasMore = newItems.length === PAGE_SIZE;
       } else if(lookupMode === 'op'){
         newItems = await searchPokewalletOP(lastSearchQuery, searchApiPage);
       } else {
@@ -2871,7 +3049,16 @@
     const item = items.find(function(x){ return x.id===cardId; });
     if(!item) return;
     try{
-      if(item._source === 'lorcana'){
+      if(item._source === 'cardsight'){
+        const data = await fetchCardsightPricing(item.id);
+        if(data){
+          item._pricingData = data;
+          item.pricing = normalizeCardsightPricing(data);
+          const img = data.raw&&data.raw.records&&data.raw.records[0]?data.raw.records[0].image_url:'';
+          if(img){ item.image = img; item._imageHigh = img; }
+        }
+        item._detailLoaded = true;
+      } else if(item._source === 'lorcana'){
         // images and pricing already loaded from search response, nothing to fetch
       } else if(item._source === 'pokewallet' || item._source === 'op'){
         const imgUrl = await fetchPokewalletImage(item.id, 'low');
@@ -2935,7 +3122,11 @@
     try{
       hideRateLimit();
       let items = [];
-      if(lookupMode === 'lorcana'){
+      if(lookupMode === 'basketball'){
+        cardsightApiSkip = 0;
+        items = await searchCardsight(query, 0);
+        searchHasMore = items.length === PAGE_SIZE;
+      } else if(lookupMode === 'lorcana'){
         items = await searchLorcast(query);
         searchHasMore = false;
       } else if(lookupMode === 'op'){
@@ -2962,7 +3153,7 @@
       allItems = items;
       displayPage = 0;
       searchApiPage = 1;
-      if(lookupMode !== 'lorcana') searchHasMore = items.length === PAGE_SIZE;
+      if(lookupMode !== 'lorcana' && lookupMode !== 'basketball') searchHasMore = items.length === PAGE_SIZE;
       lastSearchQuery = query;
       expandedCardId = null;
       renderPage();
