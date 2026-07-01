@@ -693,18 +693,12 @@
   }
   .lookup-search-chip:active{ opacity:0.7; }
   .lookup-source-header{
-    display:flex; align-items:baseline;
+    display:flex; align-items:baseline; justify-content:space-between;
     width:100%; max-width:480px; margin:0 auto 8px; padding:0 4px;
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
-  .lookup-detail-date{
-    font-size:9px; color:var(--text-dim); text-align:right; width:100%;
-    margin-bottom:0; text-transform:none; letter-spacing:0;
-  }
-  @media (max-width: 600px){
-    .lookup-detail-date{ font-size:8px; }
-  }
+  .lookup-source-date{ font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0; font-weight:400; }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
   .lookup-action-btn{
     padding:8px 0; border-radius:8px; cursor:pointer;
@@ -2318,20 +2312,18 @@
       return h;
     }
 
-    function section(name, variantsHtml){
+    function section(name, variantsHtml, sectionDate){
       let h = '<div class="lookup-source">';
-      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span></div>';
+      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span>';
+      if(sectionDate) h += '<span class="lookup-source-date">'+sectionDate+'</span>';
+      h += '</div>';
       h += '<div class="lookup-variants">'+variantsHtml+'</div>';
       h += '</div>';
       return h;
     }
 
     let html = '';
-
-    // Date top-right
-    if(dateStr){
-      html += '<div class="lookup-detail-date">'+dateStr+'</div>';
-    }
+    let dateRendered = false;
 
     // TCGPlayer · USD
     const tp = pricing && pricing.tcgplayer;
@@ -2349,7 +2341,8 @@
             market: vp.marketPrice
           });
         }).join('');
-        html += section('TCGplayer · USD', cards);
+        html += section('TCGplayer · USD', cards, dateStr);
+        dateRendered = true;
       }
     }
 
@@ -2380,7 +2373,7 @@
         }));
       }
       if(cards.length){
-        html += section('Cardmarket · EUR', cards.join(''));
+        html += section('Cardmarket · EUR', cards.join(''), dateRendered ? null : dateStr);
       }
     }
 
