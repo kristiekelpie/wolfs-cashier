@@ -2713,6 +2713,17 @@
     lookupResults.innerHTML = items.map(function(it){
       return buildResultRow(it, expandedCardId===it.id);
     }).join('');
+    // Lazily load pokewallet/OP thumbnails directly into DOM without re-render
+    items.forEach(function(item){
+      if((item._source === 'pokewallet' || item._source === 'op') && !item.image){
+        fetchPokewalletImage(item.id, 'low').then(function(url){
+          if(!url) return;
+          item.image = url;
+          const row = lookupResults.querySelector('[data-card-id="'+item.id+'"]');
+          if(row){ const img = row.querySelector('.lookup-thumb'); if(img) img.src = url; }
+        });
+      }
+    });
     lookupResults.querySelectorAll('.lookup-result').forEach(function(row){
       row.addEventListener('click', function(e){
         if(e.target.closest('.lookup-action-btn,.lookup-ext-link')) return;
