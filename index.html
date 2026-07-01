@@ -614,6 +614,22 @@
   .qr-thumb.empty{ background:var(--panel); border:1px solid var(--line); }
 
   /* ---- Card Lookup Page ---- */
+  .lookup-mode-toggle{
+    display:flex; gap:6px; margin-bottom:8px;
+  }
+  .lookup-mode-btn{
+    flex:1; padding:8px 0; border-radius:8px; border:1px solid var(--line);
+    background:transparent; color:var(--text-dim); font-size:12px; font-weight:600;
+    letter-spacing:0.05em; text-transform:uppercase; cursor:pointer;
+  }
+  .lookup-mode-btn.active{
+    border-color:var(--copper); color:var(--copper); background:var(--copper-dim);
+  }
+  .lookup-rate-limit{
+    font-size:11px; color:var(--copper); text-align:center;
+    padding:6px 10px; border-radius:8px; border:1px solid var(--copper-dim);
+    background:var(--copper-dim); margin-bottom:8px;
+  }
   .lookup-search{
     width:100%; box-sizing:border-box; padding:10px 14px; border-radius:10px;
     border:1px solid var(--line); background:var(--panel-raised); color:var(--text);
@@ -1078,10 +1094,15 @@
     <span style="width:26px"></span>
   </div>
   <div style="width:100%;max-width:480px">
+    <div class="lookup-mode-toggle" id="lookupModeToggle">
+      <button class="lookup-mode-btn active" data-mode="pokemon">Pokémon</button>
+      <button class="lookup-mode-btn" data-mode="op">One Piece</button>
+    </div>
     <div class="lookup-search-wrap" id="lookupSearchWrap">
       <input type="search" class="lookup-search" id="lookupSearch" placeholder="Search card name…" autocomplete="off" autocorrect="off" spellcheck="false">
       <div class="lookup-spinner"></div>
     </div>
+    <div id="lookupRateLimit" class="lookup-rate-limit" style="display:none">Search rate limit reached, try again in an hour</div>
     <div id="lookupSearchHistory" class="lookup-search-history"></div>
     <div id="lookupResults"></div>
   </div>
@@ -2230,9 +2251,14 @@
   const RECENT_KEY = 'tcgdex_recent';
   const SEARCH_HISTORY_KEY = 'lookup_search_history';
   const SETS_CACHE_KEY = 'tcgdex_sets_v1';
+  const PW_SEARCH_CACHE_KEY = 'pw_search_cache_v1';
   const SETS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const CACHE_TTL = 24 * 60 * 60 * 1000;
+  const PW_SEARCH_TTL = 60 * 60 * 1000;
   const TCGDEX_BASE = 'https://api.tcgdex.net/v2/en';
+
+  let lookupMode = 'pokemon';
+  let pwRateLimited = false;
 
   let tcgdexSetsMap = null;
 
@@ -2569,6 +2595,24 @@
   const POKEWALLET_BASE = 'https://api.pokewallet.io';
   const pwImageCache = new Map();
 
+  function getPwSearchCache(){ try{ return JSON.parse(localStorage.getItem(PW_SEARCH_CACHE_KEY)||'{}'); }catch(e){ return {}; } }
+  function setPwSearchCache(c){ try{ localStorage.setItem(PW_SEARCH_CACHE_KEY,JSON.stringify(c)); }catch(e){} }
+  function getPwCached(key){
+    const c = getPwSearchCache();
+    const entry = c[key];
+    if(entry && (Date.now()-entry.fetchedAt) < PW_SEARCH_TTL) return entry.items;
+    return null;
+  }
+  function setPwCached(key, items){
+    const c = getPwSearchCache();
+    c[key] = { items, fetchedAt: Date.now() };
+    setPwSearchCache(c);
+  }
+
+  const lookupRateLimitEl = document.getElementById('lookupRateLimit');
+  function showRateLimit(){ pwRateLimited=true; lookupRateLimitEl.style.display=''; }
+  function hideRateLimit(){ lookupRateLimitEl.style.display='none'; }
+
   function normalizePwPricing(tcgplayer, cardmarket){
     const out = {};
     if(tcgplayer && tcgplayer.prices){
@@ -2620,12 +2664,16 @@
   }
 
   async function searchPokewalletPokemon(query){
+    const cacheKey = 'pk:'+query.toLowerCase();
+    const cached = getPwCached(cacheKey);
+    if(cached) return cached;
     try{
       const res = await fetch(POKEWALLET_BASE+'/search?q='+encodeURIComponent(query)+'&limit=50', { headers: {'X-API-Key': POKEWALLET_KEY} });
+      if(res.status===429){ showRateLimit(); return []; }
       if(!res.ok) return [];
       const json = await res.json();
       if(!json.results||!json.results.length) return [];
-      return json.results.map(function(c){
+      const items = json.results.map(function(c){
         const ci = c.card_info || {};
         return {
           id: c.id,
@@ -2638,16 +2686,22 @@
           _detailLoaded: true
         };
       });
+      setPwCached(cacheKey, items);
+      return items;
     } catch(e){ return []; }
   }
 
   async function searchPokewalletOP(query){
+    const cacheKey = 'op:'+query.toLowerCase();
+    const cached = getPwCached(cacheKey);
+    if(cached) return cached;
     try{
       const res = await fetch(POKEWALLET_BASE+'/op/search?q='+encodeURIComponent(query)+'&limit=50', { headers: {'X-API-Key': POKEWALLET_KEY} });
+      if(res.status===429){ showRateLimit(); return []; }
       if(!res.ok) return [];
       const json = await res.json();
       if(!json.data||!json.data.length) return [];
-      return json.data.map(function(c){
+      const items = json.data.map(function(c){
         return {
           id: c.id,
           name: c.clean_name || c.name || '',
@@ -2659,6 +2713,8 @@
           _detailLoaded: true
         };
       });
+      setPwCached(cacheKey, items);
+      return items;
     } catch(e){ return []; }
   }
 
@@ -2804,26 +2860,28 @@
     lookupSearchHistory.innerHTML = '';
     lookupResults.innerHTML = '<div class="lookup-loading">Searching…</div>';
     try{
-      const [setsMap, opItems] = await Promise.all([
-        getTcgdexSetsMap(),
-        searchPokewalletOP(query)
-      ]);
-      const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=50';
-      const res = await fetch(url, {signal: lookupAbort.signal});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const data = await res.json();
-      let pokemonItems = Array.isArray(data) ? data : [];
-      pokemonItems.forEach(function(item){
-        if(!item.set && item.id && item.localId){
-          const code = setCodeFromCardId(item.id, item.localId);
-          if(code && setsMap[code]) item.set = {name: setsMap[code], id: code};
+      hideRateLimit();
+      let items = [];
+      if(lookupMode === 'op'){
+        items = await searchPokewalletOP(query);
+      } else {
+        const setsMap = await getTcgdexSetsMap();
+        const url = TCGDEX_BASE+'/cards?name=like:'+encodeURIComponent(query)+'&pagination:itemsPerPage=50';
+        const res = await fetch(url, {signal: lookupAbort.signal});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        items = Array.isArray(data) ? data : [];
+        items.forEach(function(item){
+          if(!item.set && item.id && item.localId){
+            const code = setCodeFromCardId(item.id, item.localId);
+            if(code && setsMap[code]) item.set = {name: setsMap[code], id: code};
+          }
+        });
+        if(!items.length){
+          lookupResults.innerHTML = '<div class="lookup-loading">Searching more sources…</div>';
+          items = await searchPokewalletPokemon(query);
         }
-      });
-      if(!pokemonItems.length){
-        lookupResults.innerHTML = '<div class="lookup-loading">Searching more sources…</div>';
-        pokemonItems = await searchPokewalletPokemon(query);
       }
-      let items = pokemonItems.concat(opItems);
       lookupSearchWrap.classList.remove('loading');
       if(items.length) pushSearchHistory(query);
       currentItems = items;
@@ -2856,6 +2914,19 @@
     const q = this.value.trim();
     if(!q){ expandedCardId=null; renderSearchHistory(); showRecents(); return; }
     lookupDebounce = setTimeout(function(){ doSearch(q); }, 300);
+  });
+
+  document.getElementById('lookupModeToggle').addEventListener('click', function(e){
+    const btn = e.target.closest('.lookup-mode-btn');
+    if(!btn) return;
+    const mode = btn.dataset.mode;
+    if(mode === lookupMode) return;
+    lookupMode = mode;
+    document.querySelectorAll('.lookup-mode-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===mode); });
+    lookupSearch.placeholder = mode === 'op' ? 'Search One Piece card name…' : 'Search card name…';
+    hideRateLimit();
+    const q = lookupSearch.value.trim();
+    if(q){ doSearch(q); } else { expandedCardId=null; renderSearchHistory(); showRecents(); }
   });
 
   // Show recents + search history when lookup page is opened
