@@ -2774,6 +2774,7 @@
         ? fmtPricingDate(pricing.tcgplayer.updated)
         : pricing && pricing.cardmarket && pricing.cardmarket.updated
           ? fmtPricingDate(pricing.cardmarket.updated)
+          : item._source === 'lorcana' ? 'updated daily'
           : null;
       html += '<div class="lookup-ext-links">';
       html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
