@@ -677,12 +677,12 @@
   .lookup-ext-link{
     display:flex; align-items:center; justify-content:center; gap:6px;
     padding:6px 8px; border-radius:8px;
-    border:1px solid var(--line); background:var(--panel-raised);
-    color:var(--text-dim); font-size:10px; font-weight:600;
+    border:1px solid var(--line); background:transparent;
+    color:var(--line); font-size:10px; font-weight:600;
     letter-spacing:0.06em; text-transform:uppercase; text-decoration:none;
     width:100%; box-sizing:border-box;
   }
-  .lookup-ext-link:hover{ color:var(--text); border-color:var(--copper); }
+  .lookup-ext-link:hover{ color:var(--copper); border-color:var(--copper); }
   .lookup-ext-link:active{ opacity:0.7; }
   .lookup-search-history{ display:flex; flex-wrap:wrap; gap:6px; padding:0 0 10px; }
   .lookup-search-history:empty{ display:none; }
@@ -698,9 +698,12 @@
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
-  .lookup-left-date{
-    font-size:8px; color:var(--text-dim); text-align:right; width:100%;
-    margin-top:6px; text-transform:none; letter-spacing:0;
+  .lookup-detail-date{
+    font-size:9px; color:var(--text-dim); text-align:right; width:100%;
+    margin-bottom:8px; text-transform:none; letter-spacing:0;
+  }
+  @media (max-width: 600px){
+    .lookup-detail-date{ font-size:8px; }
   }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
   .lookup-action-btn{
@@ -2288,7 +2291,7 @@
 
   function fmtPrice(v){ return v!=null ? '$'+Number(v).toFixed(2) : '—'; }
 
-  function renderVariants(pricing, cardId, cardName, setName, localId){
+  function renderVariants(pricing, cardId, cardName, setName, localId, dateStr){
     const fmtDate = fmtPricingDate;
     const fmt = function(v,sym){ return v!=null ? sym+v.toFixed(2) : '—'; };
 
@@ -2324,6 +2327,11 @@
     }
 
     let html = '';
+
+    // Date top-right
+    if(dateStr){
+      html += '<div class="lookup-detail-date">'+dateStr+'</div>';
+    }
 
     // TCGPlayer · USD
     const tp = pricing && pricing.tcgplayer;
@@ -2554,20 +2562,18 @@
       html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
       html += '<a class="lookup-ext-link" href="'+ebayUrl+'" target="_blank" rel="noopener noreferrer">eBay sold ↗</a>';
       html += '</div>';
-      // Date below buttons, right-aligned in left column
+    }
+    html += '</div>';
+    html += '<div class="lookup-result-chevron">›</div>';
+    html += '<div class="lookup-detail" id="detail-'+item.id+'">';
+    if(isExpanded && item._detailLoaded){
       const pricing = item.pricing;
       const dateStr = pricing && pricing.tcgplayer && pricing.tcgplayer.updated
         ? fmtPricingDate(pricing.tcgplayer.updated)
         : pricing && pricing.cardmarket && pricing.cardmarket.updated
           ? fmtPricingDate(pricing.cardmarket.updated)
           : null;
-      if(dateStr) html += '<div class="lookup-left-date">'+dateStr+'</div>';
-    }
-    html += '</div>';
-    html += '<div class="lookup-result-chevron">›</div>';
-    html += '<div class="lookup-detail" id="detail-'+item.id+'">';
-    if(isExpanded && item._detailLoaded){
-      html += renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'');
+      html += renderVariants(item.pricing, item.id, item.name, item.set&&item.set.name?item.set.name:'', item.localId||'', dateStr);
     } else if(isExpanded){
       html += '<div class="lookup-loading">Loading…</div>';
     }
