@@ -655,6 +655,9 @@
     background:var(--panel-raised); transition:width 0.2s, height 0.2s;
   }
   .lookup-result.expanded .lookup-thumb{ width:100%; height:auto; }
+  .lookup-thumb-wrap{ flex-shrink:0; }
+  .lookup-result.expanded .lookup-thumb-wrap{ width:100%; }
+  .lookup-thumb-wrap.img-loading::after{ content:'image loading…'; display:block; font-size:9px; color:var(--text-dim); text-align:center; padding:4px 0; letter-spacing:0.04em; }
   .lookup-result-text{ flex:1; min-width:0; }
   .lookup-result.expanded .lookup-result-text{ flex:initial; text-align:center; padding:0 4px; }
   .lookup-result-name{ font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -2506,68 +2509,6 @@
     } catch(e){ return null; }
   }
 
-  async function fetchPtcgCardDetail(id){
-    const cache = getCardCache();
-    const cacheKey = 'ptcg_'+id;
-    const cached = cache[cacheKey];
-    if(cached && (Date.now()-cached.fetchedAt)<CACHE_TTL) return cached.card;
-    const res = await fetch('https://api.pokemontcg.io/v2/cards/'+encodeURIComponent(id));
-    if(!res.ok) throw new Error('fetch failed');
-    const json = await res.json();
-    const c = json.data;
-    const card = {
-      id: c.id, name: c.name,
-      image: c.images ? c.images.small : '',
-      _imageHigh: c.images ? c.images.large : '',
-      localId: c.number,
-      set: { name: c.set ? c.set.name : '' },
-      _source: 'ptcg',
-      pricing: {}
-    };
-    if(c.tcgplayer && c.tcgplayer.prices){
-      const keyMap = {
-        'normal':'normal','holofoil':'holofoil','reverseHolofoil':'reverse-holofoil',
-        '1stEdition':'1st-edition','1stEditionHolofoil':'1st-edition-holofoil',
-        'unlimited':'unlimited','unlimitedHolofoil':'unlimited-holofoil'
-      };
-      const tp = { unit:'USD' };
-      if(c.tcgplayer.updatedAt) tp.updated = c.tcgplayer.updatedAt;
-      if(c.tcgplayer.url) card._tcgplayerUrl = c.tcgplayer.url;
-      for(const key in c.tcgplayer.prices){
-        const p = c.tcgplayer.prices[key];
-        if(!p) continue;
-        tp[keyMap[key]||key] = {
-          lowPrice:p.low, midPrice:p.mid, highPrice:p.high,
-          marketPrice:p.market, directLowPrice:p.directLow
-        };
-      }
-      if(Object.keys(tp).filter(function(k){ return tp[k]&&typeof tp[k]==='object'; }).length)
-        card.pricing.tcgplayer = tp;
-    }
-    cache[cacheKey] = { card, fetchedAt: Date.now() };
-    setCardCache(cache);
-    return card;
-  }
-
-  async function searchPokemonTcg(query){
-    try{
-      const url = 'https://api.pokemontcg.io/v2/cards?q=name:*'+encodeURIComponent(query)+'*&pageSize=50&orderBy=-set.releaseDate';
-      const res = await fetch(url);
-      if(!res.ok) return [];
-      const json = await res.json();
-      if(!json.data||!json.data.length) return [];
-      return json.data.map(function(c){
-        return {
-          id: c.id, name: c.name,
-          image: c.images ? c.images.small : '',
-          _imageHigh: c.images ? c.images.large : '',
-          localId: c.number,
-          set: { name: c.set ? c.set.name : '' },
-          _source: 'ptcg'
-        };
-      });
-    } catch(e){ return []; }
-  }
 
   const POKEWALLET_KEY = 'pk_test_b9eb9d1bfc8631dd6bed13b5f8808b2b551f5b1d13ac7d2e';
   const POKEWALLET_BASE = 'https://api.pokewallet.io';
@@ -2765,7 +2706,13 @@
     const rowClass = 'lookup-result'+(isExpanded?' expanded':'');
     let html = '<div class="'+rowClass+'" data-card-id="'+item.id+'">';
     html += '<div class="lookup-left">';
-    html += '<img class="lookup-thumb" src="'+imgUrl+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+    const wrapId = 'imgwrap-'+item.id;
+    const showLoading = isExpanded && imgUrl;
+    html += '<div class="lookup-thumb-wrap'+(showLoading?' img-loading':'')+'" id="'+wrapId+'">';
+    html += '<img class="lookup-thumb" src="'+imgUrl+'" alt="" loading="'+(isExpanded?'eager':'lazy')+'"'
+      +(showLoading?' onload="var w=document.getElementById(\''+wrapId+'\');if(w)w.classList.remove(\'img-loading\')" onerror="this.style.display=\'none\';var w=document.getElementById(\''+wrapId+'\');if(w)w.classList.remove(\'img-loading\')"':'')
+      +'>';
+    html += '</div>';
     html += '<div class="lookup-result-text"><div class="lookup-result-name">'+item.name+'</div>';
     if(setLabel) html += '<div class="lookup-result-sub">'+setLabel+'</div>';
     html += '</div>';
@@ -2782,7 +2729,7 @@
         ? fmtPricingDate(pricing.tcgplayer.updated)
         : pricing && pricing.cardmarket && pricing.cardmarket.updated
           ? fmtPricingDate(pricing.cardmarket.updated)
-          : item._source === 'lorcana' ? 'updated daily'
+          : item._source === 'lorcana' ? 'price updated daily'
           : null;
       html += '<div class="lookup-ext-links">';
       html += '<a class="lookup-ext-link" href="'+tcgpUrl+'" target="_blank" rel="noopener noreferrer">TCGplayer ↗</a>';
@@ -2934,9 +2881,7 @@
         if(item.pricing && item.pricing.tcgplayer && item.pricing.tcgplayer._url)
           item._tcgplayerUrl = item.pricing.tcgplayer._url;
       } else {
-        const detail = item._source === 'ptcg'
-          ? await fetchPtcgCardDetail(cardId)
-          : await fetchCardDetail(cardId);
+        const detail = await fetchCardDetail(cardId);
         item.image = detail.image || item.image;
         item._imageHigh = detail._imageHigh || item._imageHigh;
         item._tcgplayerUrl = detail._tcgplayerUrl || item._tcgplayerUrl;
