@@ -698,7 +698,7 @@
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim);
   }
   .lookup-source-name{ font-weight:600; color:var(--text); letter-spacing:0.08em; }
-  .lookup-source-date{ font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0; margin-top:1px; }
+  .lookup-source-date{ font-size:9px; color:var(--text-dim); text-transform:none; letter-spacing:0; align-self:flex-end; margin-bottom:2px; }
   .lookup-action-row{ display:flex; gap:8px; margin-top:8px; width:100%; }
   .lookup-action-btn{
     padding:8px 0; border-radius:8px; cursor:pointer;
@@ -2312,8 +2312,9 @@
 
     function section(name, variantsHtml, dateStr){
       let h = '<div class="lookup-source">';
-      h += '<div class="lookup-source-header"><span class="lookup-source-name">'+name+'</span>';
+      h += '<div class="lookup-source-header">';
       if(dateStr) h += '<span class="lookup-source-date">'+dateStr+'</span>';
+      h += '<span class="lookup-source-name">'+name+'</span>';
       h += '</div>';
       h += '<div class="lookup-variants">'+variantsHtml+'</div>';
       h += '</div>';
